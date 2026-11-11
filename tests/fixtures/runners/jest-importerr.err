@@ -1,0 +1,19 @@
+FAIL ./broken.test.js
+  ● Test suite failed to run
+
+    Cannot find module './does-not-exist' from 'broken.test.js'
+
+    [0m[31m[1m>[22m[39m[90m 1 |[39m [36mconst[39m { thing } [33m=[39m require([32m'./does-not-exist'[39m)[33m;[39m
+     [90m   |[39m                   [31m[1m^[22m[39m
+     [90m 2 |[39m it([32m'uses thing'[39m[33m,[39m () [33m=>[39m { expect(thing)[33m.[39mtoBe([35m1[39m)[33m;[39m })[33m;[39m
+     [90m 3 |[39m[0m
+
+      at Resolver._throwModNotFoundError (../../../../../../../../../../workspace/app/node_modules/jest-resolve/build/index.js:895:11)
+      at Object.require (broken.test.js:1:19)
+
+
+Test Suites: 1 failed, 1 passed, 2 total
+Tests:       1 passed, 1 total
+Snapshots:   0 total
+Time:        0.27 s, estimated 1 s
+Ran all test suites.

@@ -1,0 +1,19 @@
+{
+  "name": "speckit-autopilot",
+  "version": "0.1.0",
+  "description": "Unattended Spec Kit pipeline for Claude Code: one issue -> spec -> plan -> tasks -> analyze -> implement -> review -> merged PR, supervised by a judge with gates, repairs and context resets.",
+  "author": {
+    "name": "speckit-autopilot contributors"
+  },
+  "license": "MIT",
+  "keywords": [
+    "spec-kit",
+    "autopilot",
+    "agents",
+    "linear",
+    "workflow"
+  ],
+  "skills": "./skills/",
+  "homepage": "https://github.com/amrramadan/speckit-autopilot",
+  "repository": "https://github.com/amrramadan/speckit-autopilot"
+}

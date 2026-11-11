@@ -1,0 +1,15 @@
+
+ RUN  v4.1.10 /work/runners/vitest/multi-new
+
+ ❯ src/ok.test.ts (2 tests | 1 failed) 7ms
+   × totals the cart 5ms
+ ❯ src/pay/gateway.test.ts (2 tests | 1 failed) 7ms
+   × rejects a bad HMAC 6ms
+ ❯ src/orders/fsm.test.ts (3 tests | 1 failed) 8ms
+       × refuses after shipping 6ms
+
+ Test Files  3 failed (3)
+      Tests  3 failed | 4 passed (7)
+   Start at  11:32:24
+   Duration  204ms (transform 76ms, setup 0ms, import 123ms, tests 23ms, environment 0ms)
+

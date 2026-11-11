@@ -1,0 +1,10 @@
+
+ RUN  v4.1.10 /work/runners/vitest/unhandled
+
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+     Errors  1 error
+   Start at  11:32:22
+   Duration  166ms (transform 17ms, setup 0ms, import 26ms, tests 2ms, environment 0ms)
+

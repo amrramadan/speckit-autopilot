@@ -1,0 +1,7 @@
+
+Running 2 tests using 1 worker
+
+  ✓  1 tests/a.spec.ts:2:5 › home renders (5ms)
+  ✓  2 tests/a.spec.ts:3:35 › cart › adds (1ms)
+
+  2 passed (538ms)

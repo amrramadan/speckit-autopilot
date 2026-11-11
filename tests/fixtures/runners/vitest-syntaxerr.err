@@ -1,0 +1,25 @@
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  bad.test.ts [ bad.test.ts ]
+Error: Transform failed with 1 error:
+
+[31m[PARSE_ERROR] [0mExpected `}` but found `EOF`
+   [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m bad.test.ts:2:42 [38;5;246m][0m
+   [38;5;246m│[0m
+ [38;5;246m2 │[0m [38;5;249mi[0m[38;5;249mt[0m[38;5;249m([0m[38;5;249m'[0m[38;5;249mb[0m[38;5;249mr[0m[38;5;249mo[0m[38;5;249mk[0m[38;5;249me[0m[38;5;249mn[0m[38;5;249m'[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249m([0m[38;5;249m)[0m[38;5;249m [0m[38;5;249m=[0m[38;5;249m>[0m[38;5;249m [0m{[38;5;249m [0m[38;5;249me[0m[38;5;249mx[0m[38;5;249mp[0m[38;5;249me[0m[38;5;249mc[0m[38;5;249mt[0m[38;5;249m([0m[38;5;249m1[0m[38;5;249m)[0m[38;5;249m.[0m[38;5;249mt[0m[38;5;249mo[0m[38;5;249mB[0m[38;5;249me[0m[38;5;249m([0m[38;5;249m1[0m[38;5;249m)[0m[38;5;249m [0m[38;5;249m;[0m
+ [38;5;240m  │[0m                    ┬                     │ 
+ [38;5;240m  │[0m                    ╰─────────────────────── Opened here
+ [38;5;240m  │[0m                                          │ 
+ [38;5;240m  │[0m                                          ╰─ `}` expected
+[38;5;246m───╯[0m
+
+  Plugin: vite:oxc
+  File: /work/runners/vitest/syntaxerr/bad.test.ts
+ ❯ transformWithOxc ../../../../../../../../../../workspace/app/node_modules/vite/dist/node/chunks/node.js:4033:19
+ ❯ TransformPluginContext.transform ../../../../../../../../../../workspace/app/node_modules/vite/dist/node/chunks/node.js:4104:26
+ ❯ EnvironmentPluginContainer.transform ../../../../../../../../../../workspace/app/node_modules/vite/dist/node/chunks/node.js:30370:51
+ ❯ loadAndTransform ../../../../../../../../../../workspace/app/node_modules/vite/dist/node/chunks/node.js:20290:26
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

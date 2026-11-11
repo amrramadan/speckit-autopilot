@@ -1,0 +1,5 @@
+# example.com/crawler/price [example.com/crawler/price.test]
+./price_test.go:9:2: undefined: ParseCurrency
+FAIL	example.com/crawler/price [build failed]
+ok  	example.com/crawler/util	0.004s
+FAIL

@@ -1,0 +1,29 @@
+FAIL ./a.test.js
+  ● suite › pre-existing red
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 2
+    Received: 1
+
+    [0m [90m 1 |[39m describe([32m'suite'[39m[33m,[39m () [33m=>[39m {
+    [31m[1m>[22m[39m[90m 2 |[39m   test([32m'pre-existing red'[39m[33m,[39m () [33m=>[39m { expect([35m1[39m)[33m.[39mtoBe([35m2[39m) })
+     [90m   |[39m                                              [31m[1m^[22m[39m
+     [90m 3 |[39m   test([32m'snap'[39m[33m,[39m () [33m=>[39m { expect({a[33m:[39m [35m1[39m})[33m.[39mtoMatchSnapshot() })
+     [90m 4 |[39m })
+     [90m 5 |[39m[0m
+
+      at Object.toBe (a.test.js:2:46)
+
+ › 1 snapshot obsolete.
+   • suite removed test 1
+Snapshot Summary
+ › 1 snapshot obsolete from 1 test suite. To remove it, re-run jest with `-u`.
+   ↳ ./a.test.js
+       • suite removed test 1
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 1 passed, 2 total
+Snapshots:   1 obsolete, 1 passed, 1 total
+Time:        0.129 s
+Ran all test suites.

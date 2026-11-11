@@ -1,0 +1,53 @@
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/orders/fsm.test.ts > order FSM > cancel > refuses after shipping
+AssertionError: expected 'shipped' to be 'cancelled' // Object.is equality
+
+Expected: "cancelled"
+Received: "shipped"
+
+ ❯ src/orders/fsm.test.ts:4:60
+      2| describe('order FSM', () => {
+      3|   describe('cancel', () => {
+      4|     it('refuses after shipping', () => { expect('shipped').toBe('cance…
+       |                                                            ^
+      5|     it('allows while pending', () => { expect(true).toBe(true); });
+      6|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/orders/fsm.test.ts > order FSM > starts pending
+AssertionError: expected 'new' to be 'pending' // Object.is equality
+
+Expected: "pending"
+Received: "new"
+
+ ❯ src/orders/fsm.test.ts:7:46
+      5|     it('allows while pending', () => { expect(true).toBe(true); });
+      6|   });
+      7|   it('starts pending', () => { expect('new').toBe('pending'); });
+       |                                              ^
+      8| });
+      9|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/pay/gateway.test.ts > rejects a bad HMAC
+AssertionError: expected [Function] to not throw an error but 'Error: bad hmac' was thrown
+
+- Expected:
+undefined
+
++ Received:
+"Error: bad hmac"
+
+ ❯ src/pay/gateway.test.ts:2:85
+      1| import { it, expect, test } from 'vitest';
+      2| it('rejects a bad HMAC', () => { expect(() => { throw new Error('bad h…
+       |                                                                                     ^
+      3| test('top-level ok', () => { expect(1).toBe(1); });
+      4|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+

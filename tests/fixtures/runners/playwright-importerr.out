@@ -1,0 +1,18 @@
+
+Error: Cannot find module './does-not-exist'
+Require stack:
+- /work/runners/playwright/importerr/tests/broken.spec.ts
+- /workspace/app/node_modules/playwright/lib/common/index.js
+- /workspace/app/node_modules/playwright/lib/program.js
+- /workspace/app/node_modules/@playwright/test/cli.js
+
+   at broken.spec.ts:2
+
+  1 | import { test, expect } from '@playwright/test';
+> 2 | import { thing } from './does-not-exist';
+    | ^
+  3 | test('uses thing', async () => { expect(thing).toBe(1); });
+  4 |
+    at Object.<anonymous> (/work/runners/playwright/importerr/tests/broken.spec.ts:2:1)
+
+

@@ -1,0 +1,15 @@
+
+  Payments
+    1) "before each" hook for "charges the card"
+
+
+  0 passing (12ms)
+  1 failing
+
+  1) Payments
+       "before each" hook for "charges the card":
+     Error: connect ECONNREFUSED 127.0.0.1:5432
+      at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+
+
+

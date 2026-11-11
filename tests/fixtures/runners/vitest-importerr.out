@@ -1,0 +1,10 @@
+
+ RUN  v4.1.10 /work/runners/vitest/importerr
+
+ ❯ broken.test.ts (0 test)
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 passed (1)
+   Start at  11:32:21
+   Duration  196ms (transform 42ms, setup 0ms, import 30ms, tests 3ms, environment 0ms)
+

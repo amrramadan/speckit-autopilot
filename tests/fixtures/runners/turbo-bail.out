@@ -1,0 +1,48 @@
+
+   • Packages in scope: @demo/api, @demo/db, @demo/web
+   • Running test in 3 packages
+   • Remote caching disabled
+
+@demo/web:test: cache bypass, force executing 1d4516761c9a15c9
+@demo/web:test: 
+@demo/web:test: > @demo/web@0.0.0 test /work/runners/ws/packages/web
+@demo/web:test: > node /workspace/app/node_modules/vitest/vitest.mjs run
+@demo/web:test: 
+@demo/web:test: 
+@demo/web:test: [1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/work/runners/ws/packages/web[39m
+@demo/web:test: 
+@demo/web:test:  [31m❯[39m src/home.test.ts [2m([22m[2m2 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 10[2mms[22m[39m
+@demo/web:test: [31m     [31m×[31m renders hero[39m[32m 8[2mms[22m[39m
+@demo/web:test:      [32m✓[39m ok[32m 0[2mms[22m[39m
+@demo/web:test: 
+@demo/web:test: [31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+@demo/web:test: 
+@demo/web:test: [41m[1m FAIL [22m[49m src/home.test.ts[2m > [22mhome[2m > [22mrenders hero
+@demo/web:test: [31m[1mAssertionError[22m: expected 'a' to be 'b' // Object.is equality[39m
+@demo/web:test: 
+@demo/web:test: Expected: [32m"b"[39m
+@demo/web:test: Received: [31m"a"[39m
+@demo/web:test: 
+@demo/web:test: [36m [2m❯[22m src/home.test.ts:[2m2:65[22m[39m
+@demo/web:test:     [90m  1|[39m [35mimport[39m { describe[33m,[39m it[33m,[39m expect } [35mfrom[39m [32m'vitest'[39m[33m;[39m
+@demo/web:test:     [90m  2|[39m describe('home', () => { it('renders hero', () => { expect('a').toBe('…
+@demo/web:test:     [90m   |[39m                                                                 [31m^[39m
+@demo/web:test:     [90m  3|[39m
+@demo/web:test: 
+@demo/web:test: [31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+@demo/web:test: 
+@demo/web:test: 
+@demo/web:test: [2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+@demo/web:test: [2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (2)[39m
+@demo/web:test: [2m   Start at [22m 11:32:44
+@demo/web:test: [2m   Duration [22m 179ms[2m (transform 27ms, setup 0ms, import 40ms, tests 10ms, environment 0ms)[22m
+@demo/web:test: 
+@demo/web:test:  ELIFECYCLE  Test failed. See above for more details.
+@demo/db:test: cache bypass, force executing adb7aa168b50bd4c
+@demo/api:test: cache bypass, force executing 768ffc2d21f992fa
+
+ Tasks:    0 successful, 3 total
+Cached:    0 cached, 3 total
+  Time:    1.023s 
+Failed:    @demo/web#test
+

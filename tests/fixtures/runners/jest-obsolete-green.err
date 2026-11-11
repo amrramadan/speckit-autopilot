@@ -1,0 +1,10 @@
+Snapshot Summary
+ › 1 snapshot obsolete from 1 test suite. To remove it, re-run jest with `-u`.
+   ↳ ./a.test.js
+       • suite removed test 1
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   1 obsolete, 1 passed, 1 total
+Time:        0.117 s, estimated 1 s
+Ran all test suites.

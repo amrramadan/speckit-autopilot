@@ -1,0 +1,11 @@
+{
+  "name": "speckit-autopilot",
+  "owner": { "name": "speckit-autopilot contributors" },
+  "plugins": [
+    {
+      "name": "speckit-autopilot",
+      "source": "./",
+      "description": "Launch, watch and configure unattended Spec Kit runs from Claude Code."
+    }
+  ]
+}

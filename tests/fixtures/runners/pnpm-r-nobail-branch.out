@@ -1,0 +1,43 @@
+Scope: 3 of 4 workspace projects
+packages/db test$ node /workspace/app/node_modules/vitest/vitest.mjs run
+packages/api test$ node /workspace/app/node_modules/vitest/vitest.mjs run
+packages/web test$ node /workspace/app/node_modules/vitest/vitest.mjs run
+packages/db test:  RUN  v4.1.10 /work/runners/ws-branch/packages/db
+packages/api test:  RUN  v4.1.10 /work/runners/ws-branch/packages/api
+packages/web test:  RUN  v4.1.10 /work/runners/ws-branch/packages/web
+packages/db test:  Test Files  1 passed (1)
+packages/db test:       Tests  1 passed (1)
+packages/db test:    Start at  11:32:48
+packages/db test:    Duration  210ms (transform 17ms, setup 0ms, import 36ms, tests 3ms, environment 0ms)
+packages/api test:  Test Files  1 passed (1)
+packages/api test:       Tests  1 passed (1)
+packages/api test:    Start at  11:32:48
+packages/api test:    Duration  210ms (transform 18ms, setup 0ms, import 35ms, tests 12ms, environment 0ms)
+packages/db test: Done
+packages/api test: Done
+packages/web test:  ❯ src/home.test.ts (2 tests | 1 failed) 8ms
+packages/web test:      × renders hero 7ms
+packages/web test: ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+packages/web test:  FAIL  src/home.test.ts > home > renders hero
+packages/web test: AssertionError: expected 'a' to be 'b' // Object.is equality
+packages/web test: Expected: "b"
+packages/web test: Received: "a"
+packages/web test:  ❯ src/home.test.ts:2:65
+packages/web test:       1| import { describe, it, expect } from 'vitest';
+packages/web test:       2| describe('home', () => { it('renders hero', () => { expect('a').toBe('…
+packages/web test:        |                                                                 ^
+packages/web test:       3|
+packages/web test: ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+packages/web test:  Test Files  1 failed (1)
+packages/web test:       Tests  1 failed | 1 passed (2)
+packages/web test:    Start at  11:32:48
+packages/web test:    Duration  201ms (transform 27ms, setup 0ms, import 42ms, tests 8ms, environment 0ms)
+packages/web test: Failed
+ ERR_PNPM_RECURSIVE_FAIL  
+
+
+Summary: 1 fails, 2 passes
+
+/work/runners/ws-branch/packages/web:
+ ERROR  @demo/web@0.0.0 test: `node /workspace/app/node_modules/vitest/vitest.mjs run`
+Exit status 1

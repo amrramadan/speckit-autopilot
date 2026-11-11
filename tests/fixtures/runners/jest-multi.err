@@ -1,0 +1,59 @@
+FAIL src/orders/fsm.test.js
+  ● order FSM › cancel › refuses after shipping
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "cancelled"
+    Received: "shipped"
+
+    [0m [90m 1 |[39m describe([32m'order FSM'[39m[33m,[39m () [33m=>[39m {
+     [90m 2 |[39m   describe([32m'cancel'[39m[33m,[39m () [33m=>[39m {
+    [31m[1m>[22m[39m[90m 3 |[39m     it([32m'refuses after shipping'[39m[33m,[39m () [33m=>[39m { expect([32m'shipped'[39m)[33m.[39mtoBe([32m'cancelled'[39m)[33m;[39m })[33m;[39m
+     [90m   |[39m                                                            [31m[1m^[22m[39m
+     [90m 4 |[39m     it([32m'allows while pending'[39m[33m,[39m () [33m=>[39m { expect([36mtrue[39m)[33m.[39mtoBe([36mtrue[39m)[33m;[39m })[33m;[39m
+     [90m 5 |[39m   })[33m;[39m
+     [90m 6 |[39m   it([32m'starts pending'[39m[33m,[39m () [33m=>[39m { expect([32m'new'[39m)[33m.[39mtoBe([32m'pending'[39m)[33m;[39m })[33m;[39m[0m
+
+      at Object.toBe (src/orders/fsm.test.js:3:60)
+
+  ● order FSM › starts pending
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "pending"
+    Received: "new"
+
+    [0m [90m 4 |[39m     it([32m'allows while pending'[39m[33m,[39m () [33m=>[39m { expect([36mtrue[39m)[33m.[39mtoBe([36mtrue[39m)[33m;[39m })[33m;[39m
+     [90m 5 |[39m   })[33m;[39m
+    [31m[1m>[22m[39m[90m 6 |[39m   it([32m'starts pending'[39m[33m,[39m () [33m=>[39m { expect([32m'new'[39m)[33m.[39mtoBe([32m'pending'[39m)[33m;[39m })[33m;[39m
+     [90m   |[39m                                              [31m[1m^[22m[39m
+     [90m 7 |[39m })[33m;[39m
+     [90m 8 |[39m[0m
+
+      at Object.toBe (src/orders/fsm.test.js:6:46)
+
+FAIL src/pay/gateway.test.js
+  ● rejects a bad HMAC
+
+    expect(received).not.toThrow()
+
+    Error name:    "Error"
+    Error message: "bad hmac"
+
+        [0m[31m[1m>[22m[39m[90m 1 |[39m it([32m'rejects a bad HMAC'[39m[33m,[39m () [33m=>[39m { expect(() [33m=>[39m { [36mthrow[39m [36mnew[39m [33mError[39m([32m'bad hmac'[39m)[33m;[39m })[33m.[39mnot[33m.[39mtoThrow()[33m;[39m })[33m;[39m
+         [90m   |[39m                                                       [31m[1m^[22m[39m
+         [90m 2 |[39m test([32m'top-level ok'[39m[33m,[39m () [33m=>[39m { expect([35m1[39m)[33m.[39mtoBe([35m1[39m)[33m;[39m })[33m;[39m
+         [90m 3 |[39m[0m
+
+      at src/pay/gateway.test.js:1:55
+      at Object.<anonymous> (../../../../../../../../../../workspace/app/node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (../../../../../../../../../../workspace/app/node_modules/expect/build/index.js:2235:93)
+      at Object.toThrow (src/pay/gateway.test.js:1:85)
+      at Object.toThrow (src/pay/gateway.test.js:1:85)
+
+
+Test Suites: 2 failed, 1 passed, 3 total
+Tests:       3 failed, 3 passed, 6 total
+Snapshots:   0 total
+Time:        0.252 s, estimated 1 s
+Ran all test suites.

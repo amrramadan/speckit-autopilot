@@ -1,0 +1,11 @@
+
+ RUN  v4.1.10 /work/runners/vitest/single
+
+ ❯ cart.test.ts (2 tests | 1 failed) 10ms
+     × applies the coupon 7ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  11:32:19
+   Duration  220ms (transform 21ms, setup 0ms, import 33ms, tests 10ms, environment 0ms)
+

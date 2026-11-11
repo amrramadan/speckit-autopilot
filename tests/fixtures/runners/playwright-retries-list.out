@@ -1,0 +1,66 @@
+
+Running 3 tests using 1 worker
+
+  ✘  1 tests/flaky.spec.ts:2:5 › always fails (6ms)
+  ✘  2 tests/flaky.spec.ts:2:5 › always fails (retry #1) (6ms)
+  ✘  3 tests/flaky.spec.ts:3:5 › flaky one (6ms)
+  ✓  4 tests/flaky.spec.ts:3:5 › flaky one (retry #1) (4ms)
+  ✓  5 tests/flaky.spec.ts:4:5 › steady (1ms)
+
+
+  1) tests/flaky.spec.ts:2:5 › always fails ────────────────────────────────────────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 2
+    Received: 1
+
+      1 | import { test, expect } from '@playwright/test';
+    > 2 | test('always fails', async () => { expect(1).toBe(2); });
+        |                                              ^
+      3 | test('flaky one', async ({}, info) => { expect(info.retry).toBe(1); });
+      4 | test('steady', async () => { expect(1).toBe(1); });
+      5 |
+        at /work/runners/playwright/retries/tests/flaky.spec.ts:2:46
+
+    Error Context: test-results/flaky-always-fails/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 2
+    Received: 1
+
+      1 | import { test, expect } from '@playwright/test';
+    > 2 | test('always fails', async () => { expect(1).toBe(2); });
+        |                                              ^
+      3 | test('flaky one', async ({}, info) => { expect(info.retry).toBe(1); });
+      4 | test('steady', async () => { expect(1).toBe(1); });
+      5 |
+        at /work/runners/playwright/retries/tests/flaky.spec.ts:2:46
+
+    Error Context: test-results/flaky-always-fails-retry1/error-context.md
+
+  2) tests/flaky.spec.ts:3:5 › flaky one ───────────────────────────────────────────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: 0
+
+      1 | import { test, expect } from '@playwright/test';
+      2 | test('always fails', async () => { expect(1).toBe(2); });
+    > 3 | test('flaky one', async ({}, info) => { expect(info.retry).toBe(1); });
+        |                                                            ^
+      4 | test('steady', async () => { expect(1).toBe(1); });
+      5 |
+        at /work/runners/playwright/retries/tests/flaky.spec.ts:3:60
+
+    Error Context: test-results/flaky-flaky-one/error-context.md
+
+  1 failed
+    tests/flaky.spec.ts:2:5 › always fails ─────────────────────────────────────────────────────────
+  1 flaky
+    tests/flaky.spec.ts:3:5 › flaky one ────────────────────────────────────────────────────────────
+  1 passed (2.1s)

@@ -1,0 +1,22 @@
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  cart.test.ts > cart > applies the coupon
+AssertionError: expected 90 to be 85 // Object.is equality
+
+- Expected
++ Received
+
+- 85
++ 90
+
+ ❯ cart.test.ts:4:47
+      2| describe('cart', () => {
+      3|   it('sums lines', () => { expect(1 + 2).toBe(3); });
+      4|   it('applies the coupon', () => { expect(90).toBe(85); });
+       |                                               ^
+      5| });
+      6|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

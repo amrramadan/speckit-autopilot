@@ -1,0 +1,9 @@
+
+ RUN  v4.1.10 /work/runners/vitest/pass
+
+
+ Test Files  2 passed (2)
+      Tests  4 passed (4)
+   Start at  11:32:19
+   Duration  230ms (transform 63ms, setup 0ms, import 92ms, tests 5ms, environment 0ms)
+

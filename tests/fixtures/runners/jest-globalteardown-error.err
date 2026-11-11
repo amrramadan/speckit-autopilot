@@ -1,0 +1,31 @@
+FAIL ./a.test.js
+  ● suite › pre-existing red
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 2
+    Received: 1
+
+    [0m [90m 1 |[39m describe([32m'suite'[39m[33m,[39m () [33m=>[39m {
+    [31m[1m>[22m[39m[90m 2 |[39m   test([32m'pre-existing red'[39m[33m,[39m () [33m=>[39m { expect([35m1[39m)[33m.[39mtoBe([35m2[39m) })
+     [90m   |[39m                                              [31m[1m^[22m[39m
+     [90m 3 |[39m   test([32m'green'[39m[33m,[39m () [33m=>[39m { expect([35m1[39m)[33m.[39mtoBe([35m1[39m) })
+     [90m 4 |[39m })
+     [90m 5 |[39m[0m
+
+      at Object.toBe (a.test.js:2:46)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 1 passed, 2 total
+Snapshots:   0 total
+Time:        0.167 s
+Ran all test suites.
+Error: Jest: Got error running globalTeardown - /work/j1/teardown.js, reason: teardown boom
+    at module.exports (/work/j1/teardown.js:2:9)
+    at /workspace/app/node_modules/@jest/core/build/index.js:3178:17
+    at ScriptTransformer.requireAndTranspileModule (/workspace/app/node_modules/@jest/transform/build/index.js:616:24)
+    at runGlobalHook (/workspace/app/node_modules/@jest/core/build/index.js:3174:9)
+    at runJest (/workspace/app/node_modules/@jest/core/build/index.js:3537:5)
+    at _run10000 (/workspace/app/node_modules/@jest/core/build/index.js:1556:5)
+    at runCLI (/workspace/app/node_modules/@jest/core/build/index.js:1457:3)
+    at Object.run (/workspace/app/node_modules/jest-cli/build/index.js:665:9)

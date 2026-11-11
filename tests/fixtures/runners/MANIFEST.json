@@ -1,0 +1,308 @@
+{
+ "jest-importerr": {
+  "cmd": "jest",
+  "exit": 1,
+  "runner": "jest 30.4.2 (project node_modules)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "jest-multi": {
+  "cmd": "jest",
+  "exit": 1,
+  "runner": "jest 30.4.2 (project node_modules)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "jest-pass": {
+  "cmd": "jest",
+  "exit": 0,
+  "runner": "jest 30.4.2 (project node_modules)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "jest-single": {
+  "cmd": "jest",
+  "exit": 1,
+  "runner": "jest 30.4.2 (project node_modules)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "nodetest-multi-tap": {
+  "cmd": "node --test --test-reporter=tap lib/*.test.mjs",
+  "exit": 1,
+  "runner": "node --test, Node 24.18.0",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "nodetest-multi": {
+  "cmd": "node --test lib/*.test.mjs",
+  "exit": 1,
+  "runner": "node --test, Node 24.18.0",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "nodetest-pass-tap": {
+  "cmd": "node --test --test-reporter=tap lib/*.test.mjs",
+  "exit": 0,
+  "runner": "node --test, Node 24.18.0",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "nodetest-pass": {
+  "cmd": "node --test lib/*.test.mjs",
+  "exit": 0,
+  "runner": "node --test, Node 24.18.0",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "nodetest-syntaxerr-tap": {
+  "cmd": "node --test --test-reporter=tap lib/*.test.mjs",
+  "exit": 1,
+  "runner": "node --test, Node 24.18.0",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "nodetest-syntaxerr": {
+  "cmd": "node --test lib/*.test.mjs",
+  "exit": 1,
+  "runner": "node --test, Node 24.18.0",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "playwright-importerr-list": {
+  "cmd": "playwright test --reporter=list",
+  "exit": 1,
+  "runner": "@playwright/test 1.61.1 (project node_modules)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "playwright-importerr": {
+  "cmd": "playwright test",
+  "exit": 1,
+  "runner": "@playwright/test 1.61.1 (project node_modules)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "playwright-multi-list": {
+  "cmd": "playwright test --reporter=list",
+  "exit": 1,
+  "runner": "@playwright/test 1.61.1 (project node_modules)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "playwright-multi": {
+  "cmd": "playwright test",
+  "exit": 1,
+  "runner": "@playwright/test 1.61.1 (project node_modules)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "playwright-pass-list": {
+  "cmd": "playwright test --reporter=list",
+  "exit": 0,
+  "runner": "@playwright/test 1.61.1 (project node_modules)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "playwright-pass": {
+  "cmd": "playwright test",
+  "exit": 0,
+  "runner": "@playwright/test 1.61.1 (project node_modules)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "playwright-retries-list": {
+  "cmd": "playwright test --reporter=list",
+  "exit": 1,
+  "runner": "@playwright/test 1.61.1 (project node_modules)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "playwright-retries": {
+  "cmd": "playwright test",
+  "exit": 1,
+  "runner": "@playwright/test 1.61.1 (project node_modules)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "pnpm-r-bail": {
+  "cmd": "pnpm -r test",
+  "exit": 1,
+  "runner": "pnpm 10.33.0 workspace running vitest 4.1.10",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "pnpm-r-nobail-branch": {
+  "cmd": "pnpm -r --no-bail test",
+  "exit": 1,
+  "runner": "pnpm 10.33.0 workspace running vitest 4.1.10",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "pnpm-r-nobail": {
+  "cmd": "pnpm -r --no-bail test",
+  "exit": 1,
+  "runner": "pnpm 10.33.0 workspace running vitest 4.1.10",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "pytest-cov-fail": {
+  "cmd": "python -m pytest -q -p no:cacheprovider --cov=pipeline_pkg --cov-fail-under=85",
+  "exit": 1,
+  "runner": "pytest 9.1.1 + pytest-cov 7.1.0 (project .venv)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "pytest-importerr": {
+  "cmd": "python -m pytest -q -p no:cacheprovider",
+  "exit": 2,
+  "runner": "pytest 9.2.0 (.venv-autopilot)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "pytest-multi-default": {
+  "cmd": "python -m pytest -p no:cacheprovider",
+  "exit": 1,
+  "runner": "pytest 9.2.0 (.venv-autopilot)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "pytest-multi": {
+  "cmd": "python -m pytest -q -p no:cacheprovider",
+  "exit": 1,
+  "runner": "pytest 9.2.0 (.venv-autopilot)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "pytest-pass": {
+  "cmd": "python -m pytest -q -p no:cacheprovider",
+  "exit": 0,
+  "runner": "pytest 9.2.0 (.venv-autopilot)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "pytest-single": {
+  "cmd": "python -m pytest -q -p no:cacheprovider",
+  "exit": 1,
+  "runner": "pytest 9.2.0 (.venv-autopilot)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "turbo-bail": {
+  "cmd": "turbo run test --concurrency=1",
+  "exit": 1,
+  "runner": "turbo 2.9.18 (project node_modules) running vitest 4.1.10 via pnpm",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "turbo-continue-branch": {
+  "cmd": "turbo run test --concurrency=1 --continue",
+  "exit": 1,
+  "runner": "turbo 2.9.18 (project node_modules) running vitest 4.1.10 via pnpm",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "turbo-continue": {
+  "cmd": "turbo run test --concurrency=1 --continue",
+  "exit": 1,
+  "runner": "turbo 2.9.18 (project node_modules) running vitest 4.1.10 via pnpm",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "vitest-importerr": {
+  "cmd": "vitest run",
+  "exit": 1,
+  "runner": "vitest 4.1.10 (project node_modules)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "vitest-multi-fixed": {
+  "cmd": "vitest run",
+  "exit": 1,
+  "runner": "vitest 4.1.10 (project node_modules)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "vitest-multi-new": {
+  "cmd": "vitest run",
+  "exit": 1,
+  "runner": "vitest 4.1.10 (project node_modules)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "vitest-multi": {
+  "cmd": "vitest run",
+  "exit": 1,
+  "runner": "vitest 4.1.10 (project node_modules)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "vitest-nofiles": {
+  "cmd": "vitest run",
+  "exit": 1,
+  "runner": "vitest 4.1.10 (project node_modules)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "vitest-pass": {
+  "cmd": "vitest run",
+  "exit": 0,
+  "runner": "vitest 4.1.10 (project node_modules)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "vitest-projects": {
+  "cmd": "vitest run",
+  "exit": 1,
+  "runner": "vitest 4.1.10 (project node_modules)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "vitest-single": {
+  "cmd": "vitest run",
+  "exit": 1,
+  "runner": "vitest 4.1.10 (project node_modules)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "vitest-syntaxerr": {
+  "cmd": "vitest run",
+  "exit": 1,
+  "runner": "vitest 4.1.10 (project node_modules)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "vitest-unhandled": {
+  "cmd": "vitest run",
+  "exit": 1,
+  "runner": "vitest 4.1.10 (project node_modules)",
+  "source": "captured 2026-11-10 with CI=1, stdout/stderr piped separately like repo.run_shell; scratch-dir tests, absolute paths rewritten to /work and /workspace"
+ },
+ "mocha-fail": {
+  "cmd": "mocha",
+  "exit": 2,
+  "runner": "mocha spec reporter (mochajs.org/#spec, Node assert messages)",
+  "source": "DOCUMENTED: runner not installed in this workspace; written from the reporter's documented output format"
+ },
+ "mocha-pass": {
+  "cmd": "mocha",
+  "exit": 0,
+  "runner": "mocha spec reporter (mochajs.org/#spec)",
+  "source": "DOCUMENTED: runner not installed in this workspace; written from the reporter's documented output format"
+ },
+ "mocha-hook": {
+  "cmd": "mocha",
+  "exit": 1,
+  "runner": "mocha spec reporter, hook failure title (mochajs.org/#hooks)",
+  "source": "DOCUMENTED: runner not installed in this workspace; written from the reporter's documented output format"
+ },
+ "go-fail": {
+  "cmd": "go test ./...",
+  "exit": 1,
+  "runner": "go test (cmd/go 'go help test'; testing package '--- FAIL' lines)",
+  "source": "DOCUMENTED: runner not installed in this workspace; written from the reporter's documented output format"
+ },
+ "go-pass": {
+  "cmd": "go test ./...",
+  "exit": 0,
+  "runner": "go test (cmd/go 'go help test')",
+  "source": "DOCUMENTED: runner not installed in this workspace; written from the reporter's documented output format"
+ },
+ "go-build-failed": {
+  "cmd": "go test ./...",
+  "exit": 1,
+  "runner": "go test, compile error ('[build failed]')",
+  "source": "DOCUMENTED: runner not installed in this workspace; written from the reporter's documented output format"
+ },
+ "vitest-teardown-error": {
+  "cmd": "vitest run",
+  "exit": 1,
+  "runner": "vitest 4.1.8 (project node_modules)",
+  "source": "captured 2026-11-10 by the third adversarial review with CI=1, stdout/stderr piped separately like repo.run_shell; a base-red test plus a globalSetup teardown that throws ('error during close'); absolute paths rewritten to /work and /workspace"
+ },
+ "jest-globalteardown-error": {
+  "cmd": "jest",
+  "exit": 1,
+  "runner": "jest 30 (project node_modules)",
+  "source": "captured 2026-11-10 by the third adversarial review with CI=1, stdout/stderr piped separately like repo.run_shell; a base-red test plus a globalTeardown that throws; absolute paths rewritten to /work and /workspace"
+ },
+ "jest-obsolete-red": {
+  "cmd": "jest --ci",
+  "exit": 1,
+  "runner": "jest 30 (project node_modules)",
+  "source": "captured 2026-11-10 by the third adversarial review with CI=1, stdout/stderr piped separately like repo.run_shell; a base-red test plus an obsolete snapshot; absolute paths rewritten to /work and /workspace"
+ },
+ "jest-obsolete-green": {
+  "cmd": "jest --ci",
+  "exit": 1,
+  "runner": "jest 30 (project node_modules)",
+  "source": "captured 2026-11-10 by the third adversarial review with CI=1, stdout/stderr piped separately like repo.run_shell; all tests green, one obsolete snapshot: exit 1 under --ci; absolute paths rewritten to /work and /workspace"
+ },
+ "pytest-unconfigure-error": {
+  "cmd": "pytest -q",
+  "exit": 1,
+  "runner": "pytest 9 (.venv-autopilot)",
+  "source": "captured 2026-11-10 by the third adversarial review with CI=1, stdout/stderr piped separately like repo.run_shell; a base-red test plus a conftest pytest_unconfigure hook that raises; absolute paths rewritten to /work and /workspace"
+ }
+}

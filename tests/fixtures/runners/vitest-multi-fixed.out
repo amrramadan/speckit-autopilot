@@ -1,0 +1,13 @@
+
+ RUN  v4.1.10 /work/runners/vitest/multi-fixed
+
+ ❯ src/orders/fsm.test.ts (3 tests | 1 failed) 8ms
+       × refuses after shipping 6ms
+ ❯ src/pay/gateway.test.ts (2 tests | 1 failed) 8ms
+   × rejects a bad HMAC 6ms
+
+ Test Files  2 failed | 1 passed (3)
+      Tests  2 failed | 4 passed (6)
+   Start at  11:32:23
+   Duration  215ms (transform 78ms, setup 0ms, import 115ms, tests 19ms, environment 0ms)
+

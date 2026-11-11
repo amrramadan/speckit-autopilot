@@ -1,0 +1,12 @@
+ WARNING  No locally installed `turbo` found in your repository. Using globally installed version (2.9.18). Using a specified version in your repository will result in more predictable behavior.
+ WARNING  An issue occurred while attempting to parse /work/runners/ws/pnpm-lock.yaml. Turborepo will still function, but some features may not be available:
+   x Could not resolve workspaces.
+  `-> Lockfile not found at /work/
+      runners/ws/pnpm-
+      lock.yaml
+
+@demo/web#test:  WARNING  command finished with error, but continuing...
+@demo/api#test:  WARNING  command finished with error, but continuing...
+ ERROR  @demo/web#test: command (/work/runners/ws/packages/web) /usr/local/bin/pnpm run test exited (1)
+ ERROR  @demo/api#test: command (/work/runners/ws/packages/api) /usr/local/bin/pnpm run test exited (1)
+ ERROR  run failed: command  exited (1)

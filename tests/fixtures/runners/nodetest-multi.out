@@ -1,0 +1,93 @@
+▶ robots
+  ✖ honours disallow (1.2345ms)
+  ✔ reads sitemap (0.16875ms)
+✖ robots (2.219292ms)
+✔ normalises urls (0.101792ms)
+✖ extracts the title (1.768667ms)
+▶ outer
+  ✖ inner fails (0.236167ms)
+  ✔ inner ok (0.094ms)
+✖ outer (0.66725ms)
+ℹ tests 7
+ℹ suites 1
+ℹ pass 3
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 75.093875
+
+✖ failing tests:
+
+test at lib/crawl.test.mjs:4:3
+✖ honours disallow (1.2345ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'allow'
+  - 'disallow'
+  
+      at TestContext.<anonymous> (file:///work/runners/nodetest/multi/lib/crawl.test.mjs:4:41)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.start (node:internal/test_runner/test:1191:17)
+      at node:internal/test_runner/test:1792:71
+      at node:internal/per_context/primordials:466:82
+      at new Promise (<anonymous>)
+      at new SafePromise (node:internal/per_context/primordials:435:3)
+      at node:internal/per_context/primordials:466:9
+      at Array.map (<anonymous>) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'allow',
+    expected: 'disallow',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at lib/parse.test.mjs:3:1
+✖ extracts the title (1.768667ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   t: 'x'
+  -   t: 'y'
+    }
+  
+      at TestContext.<anonymous> (file:///work/runners/nodetest/multi/lib/parse.test.mjs:3:43)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.start (node:internal/test_runner/test:1191:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { t: 'x' },
+    expected: { t: 'y' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at lib/parse.test.mjs:5:11
+✖ inner fails (0.236167ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 2
+  
+      at TestContext.<anonymous> (file:///work/runners/nodetest/multi/lib/parse.test.mjs:5:46)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.start (node:internal/test_runner/test:1191:17)
+      at TestContext.test (node:internal/test_runner/test:382:20)
+      at TestContext.<anonymous> (file:///work/runners/nodetest/multi/lib/parse.test.mjs:5:11)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

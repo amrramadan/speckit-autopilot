@@ -1,0 +1,38 @@
+
+  Array
+    #indexOf()
+      ✔ should return -1 when the value is not present
+      1) should return the index when present
+  Cart
+    totals
+      ✔ adds the shipping fee
+      2) applies the coupon
+
+
+  2 passing (7ms)
+  2 failing
+
+  1) Array
+       #indexOf()
+         should return the index when present:
+
+      AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+1 !== 2
+
+      + expected - actual
+
+      -1
+      +2
+
+      at Context.<anonymous> (test/array.spec.js:9:14)
+      at process.processImmediate (node:internal/timers:483:21)
+
+  2) Cart
+       totals
+         applies the coupon:
+     AssertionError [ERR_ASSERTION]: 90 == 85
+      at Context.<anonymous> (test/cart.spec.js:14:12)
+
+
+

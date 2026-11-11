@@ -1,0 +1,10 @@
+--- FAIL: TestParsePrice (0.00s)
+    price_test.go:14: ParsePrice("12,50 USD") = 1250, want 1250.5
+--- FAIL: TestRobots (0.00s)
+    --- FAIL: TestRobots/disallow (0.00s)
+        robots_test.go:31: allowed "/cart", want disallowed
+FAIL
+FAIL	example.com/crawler/price	0.012s
+ok  	example.com/crawler/util	0.004s
+?   	example.com/crawler/cmd/crawl	[no test files]
+FAIL

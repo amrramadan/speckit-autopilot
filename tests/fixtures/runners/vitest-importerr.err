@@ -1,0 +1,14 @@
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  broken.test.ts [ broken.test.ts ]
+Error: Cannot find module './does-not-exist' imported from /work/runners/vitest/importerr/broken.test.ts
+ ❯ broken.test.ts:2:1
+      1| import { it, expect } from 'vitest';
+      2| import { thing } from './does-not-exist';
+       | ^
+      3| it('uses thing', () => { expect(thing).toBe(1); });
+      4|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

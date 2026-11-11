@@ -1,0 +1,29 @@
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  a.test.js > suite > pre-existing red
+AssertionError: expected 1 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ a.test.js:2:46
+      1| describe('suite', () => {
+      2|   test('pre-existing red', () => { expect(1).toBe(2) })
+       |                                              ^
+      3|   test('green', () => { expect(1).toBe(1) })
+      4| })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+error during close Error: teardown boom
+    at Object.teardown (/work/v1/gsetup.js:2:41)
+    at TestProject._teardownGlobalSetup (file:///workspace/app/node_modules/.pnpm/vitest@4.1.8_@opentelemetry+api@1.9.1_@types+node@24.13.2_@vitest+coverage-v8@4.1.8_jsdom@29._gxwozidqpddmqzfiebacdxjfny/node_modules/vitest/dist/chunks/cli-api.BfdDOPPI.js:10742:100)
+    at file:///workspace/app/node_modules/.pnpm/vitest@4.1.8_@opentelemetry+api@1.9.1_@types+node@24.13.2_@vitest+coverage-v8@4.1.8_jsdom@29._gxwozidqpddmqzfiebacdxjfny/node_modules/vitest/dist/chunks/cli-api.BfdDOPPI.js:13921:68
+    at Vitest.close (file:///workspace/app/node_modules/.pnpm/vitest@4.1.8_@opentelemetry+api@1.9.1_@types+node@24.13.2_@vitest+coverage-v8@4.1.8_jsdom@29._gxwozidqpddmqzfiebacdxjfny/node_modules/vitest/dist/chunks/cli-api.BfdDOPPI.js:13942:5)
+    at startVitest (file:///workspace/app/node_modules/.pnpm/vitest@4.1.8_@opentelemetry+api@1.9.1_@types+node@24.13.2_@vitest+coverage-v8@4.1.8_jsdom@29._gxwozidqpddmqzfiebacdxjfny/node_modules/vitest/dist/chunks/cli-api.BfdDOPPI.js:14560:14)
+    at start (file:///workspace/app/node_modules/.pnpm/vitest@4.1.8_@opentelemetry+api@1.9.1_@types+node@24.13.2_@vitest+coverage-v8@4.1.8_jsdom@29._gxwozidqpddmqzfiebacdxjfny/node_modules/vitest/dist/chunks/cac.C9xsMMkH.js:2340:15)
+    at CAC.run (file:///workspace/app/node_modules/.pnpm/vitest@4.1.8_@opentelemetry+api@1.9.1_@types+node@24.13.2_@vitest+coverage-v8@4.1.8_jsdom@29._gxwozidqpddmqzfiebacdxjfny/node_modules/vitest/dist/chunks/cac.C9xsMMkH.js:2318:2)

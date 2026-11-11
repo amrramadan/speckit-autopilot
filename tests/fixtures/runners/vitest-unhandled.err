@@ -1,0 +1,24 @@
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 1 unhandled error during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+Error: late boom
+ ❯ u.test.ts:2:48
+      1| import { it, expect } from 'vitest';
+      2| it('leaks a rejection', () => { Promise.reject(new Error('late boom'))…
+       |                                                ^
+      3| it('fine', () => { expect(1).toBe(1); });
+      4|
+ ❯ ../../../../../../../../../../workspace/app/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11
+ ❯ ../../../../../../../../../../workspace/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26
+ ❯ ../../../../../../../../../../workspace/app/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20
+ ❯ runWithCancel ../../../../../../../../../../workspace/app/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10
+ ❯ ../../../../../../../../../../workspace/app/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20
+ ❯ runWithTimeout ../../../../../../../../../../workspace/app/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10
+ ❯ ../../../../../../../../../../workspace/app/node_modules/@vitest/runner/dist/chunk-artifact.js:2955:64
+
+This error originated in "u.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+

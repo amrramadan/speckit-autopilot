@@ -1,0 +1,9 @@
+
+  Array
+    #indexOf()
+      ✔ should return -1 when the value is not present
+      ✔ should return the index when present
+
+
+  2 passing (5ms)
+

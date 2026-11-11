@@ -1,0 +1,11 @@
+
+ RUN  v4.1.8 /work/v1
+
+ ❯ a.test.js (2 tests | 1 failed) 4ms
+     × pre-existing red 3ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  13:18:49
+   Duration  96ms (transform 3ms, setup 0ms, import 6ms, tests 4ms, environment 0ms)
+
