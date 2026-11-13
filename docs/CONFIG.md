@@ -113,7 +113,9 @@ absent (or `None` internally).
 | `max_repairs_per_phase` | int | `2` | Repair rounds per phase entry after a failed gate / Definition-of-Done check (≥ 0). |
 | `max_back_edges` | int | `3` | Total times the judge may route back to an earlier phase in one run (≥ 0). |
 | `max_back_per_target` | int | `1` | Times the run may route back to the same phase. |
+| `auto_resume` | int | `0` | Resume a halted run by itself up to this many times (`--auto-resume N`). Each resume re-runs the halted phase with fresh repair rounds; state, decisions and back-edge counts carry over. Halts on a budget, the wall-clock limit or a wrong Linear workspace, and a halt that repeats word for word, still stop. `0` = off. |
 | `analyze_recheck_nonblocking` | bool | `false` | Analyze: when only LOW/MEDIUM findings remain, `false` applies the judge's fixes once and passes; `true` re-runs analyze after them. |
+| `review_recheck_nonblocking` | bool | `false` | Review: when no blockers remain, `false` applies the judge's approved nit fixes once and lets tooling + the DoD check decide in the same session; `true` re-runs a fresh review after them. |
 
 ### Tooling and tests
 

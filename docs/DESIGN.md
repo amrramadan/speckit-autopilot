@@ -610,6 +610,8 @@ labels with sub-groups). If you change a regex, update this block; a test compar
   when the gate already passed (only LOW/MEDIUM findings remain) and `analyze_recheck_nonblocking` is false (the
   default), the judge's fixes are applied once and the phase passes without a re-analyze — a fresh analyze of edited
   docs tends to find new LOW items every pass and would exhaust repairs; implement and review still check the work.
+  When the gate passes on the last round and no repair round is left, those LOW/MEDIUM findings are accepted as
+  they are and the phase passes.
 - **DoD:** every remaining (non-CRITICAL, non-HIGH) finding was fixed or consciously accepted with a reason.
 
 ### implement (S3)
@@ -656,7 +658,11 @@ labels with sub-groups). If you change a regex, update this block; a test compar
   tooling checks (or a failing `tooling` check "tooling not run (fixes pending)"), and, when the feature has
   human-only tasks, `human-tasks-untouched` (`_add_human_untouched_check`).
 - **Repair:** the judge's "Approved, apply these fixes now:" reply (or the generic repair message) is applied in the
-  round's session (`review:apply`); the next round reviews again in a fresh session.
+  round's session (`review:apply`); the next round reviews again in a fresh session. Exception: when the review
+  reports no blockers and `review_recheck_nonblocking` is false (the default), the judge's approved nit fixes are
+  applied once (accepted as they are when no repair round is left), then tooling and the DoD check decide in the
+  same session; a tooling or DoD failure is repaired there too. Only a blocker fix earns a fresh review — a fresh
+  review of edited code finds new nits every pass and would exhaust repairs with nothing must-fix left.
 - **DoD:** every review finding was fixed or consciously accepted; no must-fix finding remains.
 
 ### Ship gate (`_ship_gate`, before ship)

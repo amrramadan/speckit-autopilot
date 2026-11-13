@@ -244,6 +244,7 @@ class World:
         self.implement_ctx_high_after: int | None = None  # context pct >= 90 after this many implement turns
         self.implement_turns = 0
         self.review_blockers_rounds: list[int] = [0]
+        self.review_nits_rounds: list[int] = [0]  # nits per fresh review (last value repeats)
         self.review_calls = 0
         self.ship_crash_after_push = False
         self.ship_crash_before_push = False  # cc-ship crashes before committing/pushing anything
@@ -377,11 +378,13 @@ class World:
             i = min(self.review_calls, len(self.review_blockers_rounds) - 1)
             self.review_calls += 1
             self._last_review_blockers = self.review_blockers_rounds[i]
+            self._last_review_nits = self.review_nits_rounds[min(i, len(self.review_nits_rounds) - 1)]
+            nits = "\n".join(f"- N{self.review_calls}.{k}: tidy src/filters.py:1" for k in range(1, self._last_review_nits + 1)) or "None."
             if self._last_review_blockers:
-                return FakeTurn("## Blockers\n- **Severity**: blocker\n- **Anchor**: src/filters.py:1\n- **Finding**: missing guard\n\n## Nits\nNone.\n\n## Questions\nNone.")
-            return FakeTurn("## Blockers\nNone.\n\n## Nits\nNone.\n\n## Questions\nNone.")
+                return FakeTurn(f"## Blockers\n- **Severity**: blocker\n- **Anchor**: src/filters.py:1\n- **Finding**: missing guard\n\n## Nits\n{nits}\n\n## Questions\nNone.")
+            return FakeTurn(f"## Blockers\nNone.\n\n## Nits\n{nits}\n\n## Questions\nNone.")
         if msg.startswith("Now append a machine-readable summary"):
-            return FakeTurn(f"REVIEW_SUMMARY blockers={self._last_review_blockers} nits=0 questions=0")
+            return FakeTurn(f"REVIEW_SUMMARY blockers={self._last_review_blockers} nits={getattr(self, '_last_review_nits', 0)} questions=0")
         if msg.startswith("/cc-ship") or msg.startswith("AUTOPILOT SHIP RESUME"):
             return self._ship(s, msg)
         if msg.startswith("AUTOPILOT LINEAR CLOSE-OUT"):
@@ -546,6 +549,7 @@ class JudgeScript:
         self.escalate_in: str | None = None
         self.analyze_accept_all = False
         self.analyze_fix_nonblocking = False  # like the real judge: also ask to fix the MEDIUM/LOW rows
+        self.review_fix_nits = False  # like the real judge: approve fixes for a blocker-free review's nits
 
     def __call__(self, req: JudgeRequest) -> dict[str, Any] | None:
         m, ph = req.mode, req.phase.split(":")[0]
@@ -597,6 +601,9 @@ class JudgeScript:
         if ph == "review":
             if "**Severity**: blocker" in text:
                 return respond("needs_reply", "Approved, apply these fixes now:\n1. add a None guard in src/filters.py:1", [decision("blocker: missing guard", "fix", impact="medium")], blocking=0)
+            nits = re.findall(r"^- (N[0-9.]+):", text, re.M)
+            if nits and self.review_fix_nits:
+                return respond("needs_reply", "Approved, apply these fixes now:\n" + "\n".join(f"{i}. fix {n}" for i, n in enumerate(nits, 1)), [decision(f"nit {n}", "fix", impact="low") for n in nits], blocking=0)
             return respond("done")
         return respond("done", escalate=esc, reason="legal" if esc else "")
 

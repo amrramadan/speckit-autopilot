@@ -103,6 +103,10 @@ class Config:
     # applied once and the phase passes; true re-runs a fresh analyze after them (the old loop, which can run out of
     # repairs chasing new LOW items)
     analyze_recheck_nonblocking: bool = False
+    # review: with no blockers left, the judge's approved nit fixes are applied once, then tooling + the DoD check
+    # decide in the same session; true re-runs a fresh review after them (the old loop: every fresh review finds new
+    # nits, so it could halt with zero blockers once the repairs ran out)
+    review_recheck_nonblocking: bool = False
 
     # ---- limits: none by default ------------------------------------------------------
     # Runs use the Claude subscription, so there is no USD budget and no wall-clock limit unless a config sets one
@@ -125,6 +129,9 @@ class Config:
 
     # ---- run flags ------------------------------------------------------------------
     allow_escalations: bool = False
+    # a halted run resumes itself up to this many times (each resume re-runs the halted phase with fresh repair
+    # rounds); budget / wall-clock / wrong-workspace halts and a halt that repeats word for word still stop. 0 = off
+    auto_resume: int = 0
     until: str | None = None  # a phase to stop before; "none" clears the stop a resumed run was started with
     from_phase: str | None = None
     resume: bool = False
@@ -356,6 +363,8 @@ def validate(cfg: Config) -> None:
             raise ConfigError(f"--{name.replace('_phase', '')} must be one of {', '.join(PHASES)} (got {val!r})")
     if not (1 <= cfg.context_reset_pct <= 100):
         raise ConfigError("context_reset_pct must be within 1..100")
+    if cfg.auto_resume < 0:
+        raise ConfigError("auto_resume must be >= 0")
     if cfg.max_repairs_per_phase < 0 or cfg.max_back_edges < 0:
         raise ConfigError("repair / back-edge limits must be >= 0")
     if cfg.spec_id_style not in ("number", "key"):

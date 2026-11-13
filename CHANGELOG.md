@@ -3,6 +3,29 @@
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- `auto_resume` (config) / `--auto-resume N` (CLI): a halted run resumes itself up to N times, re-running the halted
+  phase with fresh repair rounds. Budget, wall-clock and wrong-workspace halts, and a halt that repeats word for
+  word, still stop. Default `0` (off).
+
+### Changed
+
+- Review no longer loops on nits. When a review reports no blockers, the judge's approved nit fixes are applied once
+  (or accepted when no repair round is left), then tooling and the Definition-of-Done check decide in the same
+  session. A run used to halt after several rounds with zero blockers because every fresh review found new nits.
+  Set `review_recheck_nonblocking = true` to keep the old loop.
+- Analyze no longer halts when its gate passes on the last round: the remaining LOW/MEDIUM findings are accepted
+  when no repair round is left to apply the judge's fixes.
+
+### Fixed
+
+- A judge "forward" after analyze or review used up its repairs always halted ("the deterministic gate still
+  fails"), because those phases cannot be re-gated without a fresh run. It now advances when the last round's
+  deterministic gate passed and only judge-requested, non-blocking work was left.
+
 ## [0.1.0] - unreleased
 
 First public release.

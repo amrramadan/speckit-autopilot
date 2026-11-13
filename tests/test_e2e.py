@@ -747,6 +747,106 @@ def test_analyze_recheck_nonblocking_keeps_the_old_loop(tmp_path):
     assert w.analyze_calls > 1 and not events(w, "analyze_nonblocking_done")
 
 
+def test_analyze_nonblocking_fixes_with_no_round_left_are_accepted(tmp_path):
+    w = World(tmp_path)
+    w.analyze_rounds = [[("H1", "HIGH")], [("M1", "MEDIUM"), ("L1", "LOW")], [("L2", "LOW")]]
+    runner, _judge, js, _tr = make_runner(w, max_repairs_per_phase=1)
+    js.analyze_fix_nonblocking = True
+    out = run(runner)
+    assert out.status == "completed", out.reason  # used to halt: "the judge asked to move forward but the gate still fails"
+    assert w.analyze_calls == 2
+    rec = state(w).phase("analyze")
+    assert (rec.status, rec.repairs) == ("passed", 1)
+    ev = events(w, "analyze_nonblocking_done", phase="analyze")
+    assert ev and ev[-1]["applied"] is False
+    assert any("accepted without the judge's fixes" in json.dumps(d) for d in decisions(w))
+
+
+def test_judge_forward_is_honoured_when_the_last_review_gate_passed(tmp_path):
+    w = World(tmp_path)
+    w.review_nits_rounds = [1]
+    runner, _judge, js, _tr = make_runner(w, review_recheck_nonblocking=True)  # the old loop: runs out with nits pending
+    js.review_fix_nits = True
+    js.route_action = {"review": {"action": "forward", "reason": "only nits are left"}}
+    out = run(runner)
+    assert out.status == "completed", out.reason
+    assert any(r.get("action") == "forward" and r.get("applied") for r in decisions(w, "routing"))
+
+
+def test_judge_forward_still_halts_when_the_review_gate_failed(tmp_path):
+    w = World(tmp_path)
+    w.review_blockers_rounds = [1]  # a blocker every round
+    runner, _judge, js, _tr = make_runner(w)
+    js.route_action = {"review": {"action": "forward", "reason": "ship it"}}
+    out = run(runner)
+    assert out.status == "halted" and "deterministic gate still fails" in out.reason
+
+
+# --------------------------------------------------------------------------------------
+# review with no blockers: approved nit fixes are applied once, no fresh re-review loop
+# --------------------------------------------------------------------------------------
+
+
+def test_review_nit_fixes_are_applied_once_and_the_phase_passes(tmp_path):
+    w = World(tmp_path)
+    w.review_nits_rounds = [2, 1, 1, 1, 1]  # every fresh review would find a new nit
+    runner, _judge, js, _tr = make_runner(w)
+    js.review_fix_nits = True
+    out = run(runner)
+    assert out.status == "completed", out.reason
+    assert w.review_calls == 1  # no fresh review chasing new nits
+    assert w.edits_applied == ["Approved, apply these fixes now:\n1. fix N1.1\n2. fix N1.2"]
+    rec = state(w).phase("review")
+    assert (rec.status, rec.repairs) == ("passed", 1)
+    ev = events(w, "review_nonblocking", phase="review")
+    assert ev and ev[0]["applied"] is True
+    assert any("applied once and not re-reviewed" in json.dumps(d) for d in decisions(w))
+
+
+def test_review_nits_are_accepted_when_no_repair_round_is_left(tmp_path):
+    w = World(tmp_path)
+    w.review_nits_rounds = [1]
+    runner, _judge, js, _tr = make_runner(w, max_repairs_per_phase=0)
+    js.review_fix_nits = True
+    out = run(runner)
+    assert out.status == "completed", out.reason
+    assert w.review_calls == 1 and not any("fix N1.1" in e for e in w.edits_applied)
+    ev = events(w, "review_nonblocking", phase="review")
+    assert ev and ev[0]["applied"] is False
+
+
+def test_review_tooling_failure_without_blockers_is_repaired_in_place(tmp_path):
+    w = World(tmp_path)
+    runner, _judge, _js, tr = make_runner(w, tool_results={"pytest -q": [0, 1, 1]})  # green at implement, red at review (+ its one retry)
+    out = run(runner)
+    assert out.status == "completed", out.reason
+    assert w.review_calls == 1  # the tooling fix is checked by tooling + DoD, not by another full review
+    rec = state(w).phase("review")
+    assert (rec.status, rec.repairs) == ("passed", 1)
+    assert any(m.startswith("AUTOPILOT REPAIR (phase review") for _label, m in w.messages)
+
+
+def test_review_blocker_fix_still_gets_a_fresh_review(tmp_path):
+    w = World(tmp_path)
+    w.review_blockers_rounds = [1, 0]
+    w.review_nits_rounds = [0, 1]
+    runner, _judge, js, _tr = make_runner(w)
+    js.review_fix_nits = True
+    out = run(runner)
+    assert out.status == "completed", out.reason
+    assert w.review_calls == 2  # blocker fixed -> fresh review; its nit is then fixed once, in place
+    assert state(w).phase("review").repairs == 2
+
+
+def test_review_recheck_nonblocking_keeps_the_old_loop(tmp_path):
+    w = World(tmp_path)
+    w.review_nits_rounds = [1]
+    runner, _judge, js, _tr = make_runner(w, review_recheck_nonblocking=True)
+    js.review_fix_nits = True
+    run(runner)
+    assert w.review_calls > 1 and not events(w, "review_nonblocking")
+
+
 def test_until_none_lets_a_halted_run_ship(tmp_path):
     w = World(tmp_path)
     runner, *_ = make_runner(w, until="ship")
@@ -759,3 +859,56 @@ def test_until_none_lets_a_halted_run_ship(tmp_path):
     out = run(runner)
     assert out.status == "completed", out.reason
     assert (w.pushes, w.pr_creates, w.merges) == (1, 1, 1)
+
+
+# --------------------------------------------------------------------------------------
+# auto_resume: a halted run resumes itself
+# --------------------------------------------------------------------------------------
+
+
+def _auto(w: World, js=None, **kw):
+    from speckit_autopilot.runner import run_with_auto_resume
+
+    made = []
+
+    def factory(cfg):
+        runner, _judge, j, _tr = make_runner(w, judge_script=js, **{**kw, "resume": cfg.resume})
+        runner.cfg.auto_resume = cfg.auto_resume
+        made.append(runner)
+        return runner
+
+    from .fakeworld import make_cfg
+
+    cfg = make_cfg(w, **kw)
+    return run_with_auto_resume(cfg, factory, echo=lambda m: None), made
+
+
+def test_auto_resume_retries_a_halted_phase_and_completes(tmp_path):
+    w = World(tmp_path)
+    w.review_blockers_rounds = [1, 1, 0]  # attempt 1 runs out of repairs; the resumed attempt's review is clean
+    out, made = _auto(w, max_repairs_per_phase=1, auto_resume=2)
+    assert out.status == "completed", out.reason
+    assert len(made) == 2 and state(w).phase("review").attempts == 2
+    assert events(w, "auto_resume")
+
+
+def test_auto_resume_off_keeps_the_halt(tmp_path):
+    w = World(tmp_path)
+    w.review_blockers_rounds = [1, 1, 0]
+    out, made = _auto(w, max_repairs_per_phase=1, auto_resume=0)
+    assert out.status == "halted" and len(made) == 1
+
+
+def test_auto_resume_stops_on_a_halt_that_repeats_word_for_word(tmp_path):
+    w = World(tmp_path)
+    w.review_blockers_rounds = [1]  # a blocker forever
+    out, made = _auto(w, max_repairs_per_phase=1, auto_resume=5)
+    assert out.status == "halted" and len(made) == 2
+
+
+def test_auto_resumable_skips_limit_halts():
+    from speckit_autopilot.runner import auto_resumable
+
+    assert not auto_resumable("phase budget for analyze exhausted: $16.29 ≥ $16.00")
+    assert not auto_resumable("wall-clock limit reached: 4.15 h ≥ 4.0 h")
+    assert auto_resumable("implement failed after 4 repair round(s); judge routed to halt: tests red")

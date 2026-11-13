@@ -84,6 +84,9 @@ class PhaseResult:
     worker_text: str = ""
     halt: Halt | None = None
     routed_to: str | None = None  # the phase already routed back (early route check); the loop jumps there
+    # analyze/review: the last round's deterministic gate passed and only judge-requested work was left. A judge
+    # "forward" may then advance (these phases cannot be re-gated without a fresh run)
+    gate_passed: bool = False
 
 
 @dataclass
@@ -91,6 +94,35 @@ class RunOutcome:
     status: str  # completed | halted | stopped | paused
     reason: str = ""
     report: Path | None = None
+
+
+# halts that another attempt cannot fix: a resume would hit the same wall at once
+AUTO_RESUME_NEVER = ("wrong workspace", "budget", "wall-clock limit")
+
+
+def auto_resumable(reason: str) -> bool:
+    r = (reason or "").lower()
+    return not any(x in r for x in AUTO_RESUME_NEVER)
+
+
+def run_with_auto_resume(cfg: Config, make_runner: Callable[[Config], "Runner"], echo: Callable[[str], None] = print) -> RunOutcome:
+    """Run, and resume a halted run by itself up to ``cfg.auto_resume`` times. Each resume re-runs the halted phase
+    with fresh repair rounds (the state, decisions and back-edge counts carry over). Stops early on a halt no retry
+    can fix (budget, wall-clock, wrong Linear workspace) or one that repeats word for word."""
+    runner = make_runner(cfg)
+    outcome = asyncio.run(runner.run())
+    last = None
+    for n in range(1, max(0, cfg.auto_resume) + 1):
+        if outcome.status != "halted" or not auto_resumable(outcome.reason) or outcome.reason == last:
+            break
+        last = outcome.reason
+        echo(f"\nAutopilot halted: {outcome.reason}\nAuto-resume {n}/{cfg.auto_resume}: resuming the run.")
+        if getattr(runner, "log", None) is not None:
+            runner.log.emit("auto_resume", attempt=n, max=cfg.auto_resume, reason=outcome.reason[:500], summary=f"auto-resume {n}/{cfg.auto_resume} after: {outcome.reason[:160]}")
+        cfg = dataclasses.replace(cfg, resume=True, from_phase=None)
+        runner = make_runner(cfg)
+        outcome = asyncio.run(runner.run())
+    return outcome
 
 
 def slugify(text: str, words: int = 4) -> str:
@@ -912,8 +944,16 @@ class Runner:
             else:
                 last_failed = gate.failed() or ["judge requested fixes for remaining findings"]
             if rec.repairs >= self.cfg.max_repairs_per_phase:
+                if nonblocking and not self.cfg.analyze_recheck_nonblocking:
+                    # the gate passed (no CRITICAL/HIGH) and only LOW/MEDIUM fixes were asked for: with no round left
+                    # they are accepted as they are, not a halt
+                    self.decisions.add_note("analyze", f"Gate passed (no CRITICAL/HIGH); no repair round was left, so the remaining LOW/MEDIUM findings were accepted without the judge's fixes (round {rec.repairs}).")
+                    self.log.emit("analyze_nonblocking_done", phase="analyze", round=rec.repairs, applied=False, summary="gate passed: no repair round left, remaining LOW/MEDIUM findings accepted, analyze done")
+                    await self._close_session("non-blocking findings accepted")
+                    self.save()
+                    return PhaseResult(True, worker_text=text)
                 await self._close_session("analyze repairs exhausted")
-                return PhaseResult(False, last_failed, text)
+                return PhaseResult(False, last_failed, text, gate_passed=gate.passed and read_only)
             rec.repairs += 1
             approval = jr.reply if (jr.status == "needs_reply" and jr.reply.strip()) else self._forced_approval(report, last_failed)
             approval, warn = sanitize_reply(approval, [])
@@ -1172,6 +1212,11 @@ class Runner:
             judged = int(jr.data.get("blocking_issues_remaining", 0))
             if parsed.blockers is not None and judged < parsed.blockers:
                 self.log.emit("judge_disagreement", phase="review", judge_blocking=judged, parsed_blocking=parsed.blockers)
+            if G.gate_review(parsed, None).passed and jr.status in ("done", "needs_reply") and not self.cfg.review_recheck_nonblocking:
+                # no blockers: finish in this session. A fresh review after nit fixes finds new nits every pass (seen in
+                # practice: 4 rounds of 0 blockers + 1-2 nits, then a halt with nothing must-fix left)
+                nit_fix = jr.reply if (jr.status == "needs_reply" and jr.reply.strip()) else None
+                return await self._finish_nonblocking_review(rec, sess, parsed, report_text, nit_fix)
             tooling = await self._run_tooling() if (parsed.blockers == 0 and jr.status == "done") else None
             gate = G.gate_review(parsed, tooling)
             if tooling is None and gate.passed:
@@ -1188,7 +1233,8 @@ class Runner:
                 failed = gate.failed() or ["review fixes approved by the judge are pending"]
             if rec.repairs >= self.cfg.max_repairs_per_phase:
                 await self._close_session("review repairs exhausted")
-                return PhaseResult(False, failed, report_text)
+                only_pending = G.gate_review(parsed, None).passed and all("fixes pending" in f or "approved by the judge are pending" in f for f in failed)
+                return PhaseResult(False, failed, report_text, gate_passed=only_pending)
             rec.repairs += 1
             fix = jr.reply if (jr.status == "needs_reply" and jr.reply.strip()) else repair_message("review", failed, round_no=rec.repairs, max_rounds=self.cfg.max_repairs_per_phase)
             fix, _ = sanitize_reply(fix, [])
@@ -1202,6 +1248,56 @@ class Runner:
             self._mark_early_done("review")  # a fix was applied: only the after-repairs route remains
             await self._close_session("review fixes applied; re-verify in a fresh session")
             self.save()
+
+    async def _finish_nonblocking_review(self, rec, sess: WorkerSession, parsed: G.ReviewReport, report_text: str, nit_fix: str | None) -> PhaseResult:
+        """The review found no blockers. The judge's approved nit fixes are applied once (when a repair round is left;
+        otherwise they are accepted as they are), then tooling + the DoD check decide, in this same session. A tooling
+        or DoD failure is repaired here too; no fresh review runs, since only blockers justify one."""
+        max_rounds = self.cfg.max_repairs_per_phase
+        if nit_fix is not None:
+            applied = rec.repairs < max_rounds
+            if applied:
+                rec.repairs += 1
+                fix, _ = sanitize_reply(nit_fix, [])
+                self.log.emit("repair", phase="review", round=rec.repairs, failed=["review nit fixes approved by the judge (no blockers)"])
+                sess = await self._review_apply_session(sess, ["review nit fixes approved by the judge"])
+                await self._converse("review:apply", sess, fix)
+                self._mark_early_done("review")
+                self.decisions.add_note("review", f"No blockers; the judge's approved nit fixes were applied once and not re-reviewed (round {rec.repairs}).")
+            else:
+                self.decisions.add_note("review", "No blockers; no repair round was left, so the remaining nits were accepted without the approved fixes.")
+            self.log.emit("review_nonblocking", phase="review", round=rec.repairs, applied=applied, summary="no blockers: nit fixes applied once, no fresh re-review")
+            self.save()
+        while True:
+            tooling = await self._run_tooling()
+            gate = G.gate_review(parsed, tooling)
+            self._add_human_untouched_check(gate)
+            self._log_gate(gate)
+            if gate.passed:
+                v = await self._verify("review", gate, extra=report_text[-20000:])
+                if v is None:
+                    await self._close_session("review verified")
+                    return PhaseResult(True, worker_text=report_text)
+                failed = ["[judge] " + x for x in v]
+            else:
+                failed = gate.failed()
+            if rec.repairs >= max_rounds:
+                await self._close_session("review repairs exhausted")
+                return PhaseResult(False, failed, report_text)
+            rec.repairs += 1
+            self.log.emit("repair", phase="review", round=rec.repairs, failed=failed)
+            sess = await self._review_apply_session(sess, failed)
+            await self._converse("review:apply", sess, repair_message("review", failed, round_no=rec.repairs, max_rounds=max_rounds))
+            self._mark_early_done("review")
+            self.save()
+
+    async def _review_apply_session(self, sess: WorkerSession, failed: list[str]) -> WorkerSession:
+        if self.reset_pending or self.session is not sess:
+            if self.reset_pending:
+                await self._reset(self.reset_pending)
+            sess = await self._fresh_session("review", "apply approved review fixes", failed=failed)
+        self.gate.set_phase("review")
+        return sess
 
     # ---------------------------------------------------------------- ship gate + S5
     async def _ship_gate(self) -> None:
@@ -1581,8 +1677,11 @@ class Runner:
         if action == "forward":
             # a judge can never overrule a failed deterministic gate: re-check it
             regate = await self._regate(phase)
-            self.decisions.add_routing(phase, "forward", None, reason, applied=bool(regate and regate.passed), note="" if regate and regate.passed else "deterministic gate still fails")
-            if regate is not None and regate.passed:
+            # analyze/review cannot be re-gated without a fresh run; their last round's gate stands in when it passed
+            # and only judge-requested (non-blocking) work was left
+            ok = (regate is not None and regate.passed) or (regate is None and res.gate_passed)
+            self.decisions.add_routing(phase, "forward", None, reason, applied=ok, note="" if ok else "deterministic gate still fails")
+            if ok:
                 st.phase(phase).status = "passed"
                 self.log.emit("route", phase=phase, action="forward", reason=reason)
                 return None

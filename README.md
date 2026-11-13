@@ -148,6 +148,7 @@ current setting and ask you to pick one. Settings apply to the next run or `--re
 | `--from PHASE` | Restart at PHASE; it and every later phase re-run. Needs an existing state. |
 | `--until PHASE` | Stop **before** PHASE (status `paused`, exit 0). `--until none` clears a stop saved by an earlier launch. |
 | `--allow-escalations` | Let the ship gate open although the judge escalated decisions to a human. |
+| `--auto-resume N` | Resume a halted run by itself up to N times (config `auto_resume`); budget, wall-clock and repeated halts still stop. |
 | `--judge-model M`, `--worker-model M` | Override the configured models for this run. |
 | `--dry-run` | Preflight only. With `--preflight-run-tests`: also run the test command once. With `--no-judge-ping`: skip the paid judge ping. |
 | `--skip-preflight` | Start a real run without preflight (not recommended). |

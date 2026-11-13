@@ -54,7 +54,7 @@ a separate clone or worktree is safer (preflight refuses a dirty tree anyway).
 | `/autopilot report` | `SA --repo REPO --report` |
 | `/autopilot abandon` | confirm with the user first, then `SA --repo REPO --abandon` (archives run state; never touches git or the tracker) |
 
-Pass through unchanged: `--linear`, `--no-linear`, `--spec ID`, `--until PHASE`, `--allow-escalations`, `--judge-model M`, `--worker-model M`,
+Pass through unchanged: `--linear`, `--no-linear`, `--spec ID`, `--until PHASE`, `--allow-escalations`, `--auto-resume N`, `--judge-model M`, `--worker-model M`,
 `--cli-path PATH`. Phases: `feature_start clarify plan tasks analyze implement review ship linear`; `--until P` stops
 **before** P. Quote the description as one shell argument. When the repo's config has `spec_id_style = "key"` and the
 user gave no `--spec`, ask for it before launching.
