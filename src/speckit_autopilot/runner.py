@@ -102,6 +102,23 @@ class RunOutcome:
 AUTO_RESUME_NEVER = ("wrong workspace", "budget", "wall-clock limit")
 
 
+# A worker turn that failed because the model API refused or dropped the call, not because of the worker's work.
+# Matched against the turn's final text and SDK errors only (never tool output), and only on a turn the SDK marked
+# is_error. 400-class request errors (prompt too long, invalid request) are not transient: a resend repeats them.
+_TRANSIENT_API_RE = re.compile(
+    r"API Error: (?:403|408|409|429|5\d\d)\b"
+    r"|Attention Required!? \| Cloudflare"
+    r"|\boverloaded_error\b|\bOverloaded\b"
+    r"|\brate_limit_error\b"
+    r"|APIConnectionError|APITimeoutError|Connection error\.|ECONNRESET|socket hang up",
+)
+TRANSIENT_API_BACKOFF_CAP_S = 900.0
+
+
+def is_transient_api_error(text: str, errors: list[str] | None = None) -> bool:
+    return any(_TRANSIENT_API_RE.search(s or "") for s in [text, *(errors or [])])
+
+
 def auto_resumable(reason: str) -> bool:
     r = (reason or "").lower()
     return not any(x in r for x in AUTO_RESUME_NEVER)
@@ -1977,6 +1994,7 @@ class Runner:
     async def _converse(self, phase: str, sess: WorkerSession, first: str, *, facts_fn: Callable[[], dict[str, Any]] | None = None, stop_on_reset: bool = False) -> Conversation:
         msg = first
         turns = 0
+        api_retries = 0
         while True:
             if sess.turns >= self.cfg.max_turns_per_session:
                 self.log.emit("turn_cap", phase=phase, turns=sess.turns)
@@ -1986,6 +2004,22 @@ class Runner:
             if turn.timed_out:
                 await self._close_session("turn timeout")
                 return Conversation("failed", turn.reply_text, reason=f"worker turn exceeded {self.cfg.turn_timeout_min:g} min and was interrupted", turns=turns)
+            if turn.is_error and api_retries < self.cfg.transient_api_retries and is_transient_api_error(turn.final_text, turn.errors):
+                # the API, not the worker: wait and re-send the same message to the same session (no repair round)
+                api_retries += 1
+                delay = min(self.cfg.transient_api_backoff_s * 2 ** (api_retries - 1), TRANSIENT_API_BACKOFF_CAP_S)
+                self.log.emit(
+                    "api_retry",
+                    phase=phase,
+                    session=sess.label,
+                    attempt=api_retries,
+                    of=self.cfg.transient_api_retries,
+                    delay_s=delay,
+                    reason=(turn.final_text or "; ".join(turn.errors))[:200],
+                    summary=f"model API error, retry {api_retries}/{self.cfg.transient_api_retries} in {delay:g}s",
+                )
+                await self._in_thread(self._stoppable_sleep, delay)
+                continue
             if turn.is_error:
                 return Conversation("failed", turn.reply_text, reason=f"worker error: {turn.subtype} {turn.errors[:2]} {turn.final_text[:200]}", turns=turns)
             facts = facts_fn() if facts_fn else {}

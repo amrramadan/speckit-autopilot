@@ -111,6 +111,8 @@ absent (or `None` internally).
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `max_repairs_per_phase` | int | `2` | Repair rounds per phase entry after a failed gate / Definition-of-Done check (≥ 0). |
+| `transient_api_retries` | int | `5` | Re-sends of a worker turn the model API refused or dropped (403 block page, 429, 5xx, connection errors), without spending a repair round. `0` turns it off. |
+| `transient_api_backoff_s` | float | `60.0` | Wait before the first re-send; doubles each time, at most 15 minutes. |
 | `max_back_edges` | int | `3` | Total times the judge may route back to an earlier phase in one run (≥ 0). |
 | `max_back_per_target` | int | `1` | Times the run may route back to the same phase. |
 | `auto_resume` | int | `0` | Resume a halted run by itself up to this many times (`--auto-resume N`). Each resume re-runs the halted phase with fresh repair rounds; state, decisions and back-edge counts carry over. Halts on a budget, the wall-clock limit or a wrong Linear workspace, and a halt that repeats word for word, still stop. `0` = off. |

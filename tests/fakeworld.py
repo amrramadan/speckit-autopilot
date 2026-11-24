@@ -257,6 +257,7 @@ class World:
         self.feature_start_hands_back = True
         self.analyze_trailers: list[str | None] = []  # per analyze run: the ANALYZE_SUMMARY reply (None: counts of the table)
         self.tasks_md = TASKS_MD  # what /speckit-tasks writes
+        self.api_error_in: dict[str, int] = {}  # phase -> number of worker turns that fail with a transient API error
         self.delegated_seen: set[str] = set()  # ids the implement messages listed as delegated decisions
         self.follow_delegated = True  # the implementer ticks the tasks listed under DELEGATED DECISIONS
         self.tick_human = False  # a misbehaving implementer that also ticks human-only tasks
@@ -306,6 +307,10 @@ class World:
         if pipeline_turn and self.hang_in.get(phase, 0) > 0:
             self.hang_in[phase] -= 1
             return FakeTurn("", hang=True)  # does nothing; FakeSession times out and interrupts it
+        if pipeline_turn and self.api_error_in.get(phase, 0) > 0:
+            self.api_error_in[phase] -= 1
+            # the shape a real blocked API call has: subtype success, is_error, this text
+            return FakeTurn("Failed to authenticate. API Error: 403 Attention Required! | Cloudflare", is_error=True)
         push = pipeline_turn and self.ship_attempt_push_in == phase and not self.push_attempted
         if push and phase == "implement":
             # a denied tool call blocks the whole turn's action in FakeSession, so the push attempt is a turn of its own

@@ -1521,6 +1521,18 @@ def ship_facts(repo: Path, base: str, feature_branch: str, *, fetch: bool = True
             items = [p for p in json.loads(pr.stdout) if p.get("baseRefName") in (base, None)]
         except json.JSONDecodeError:
             items = []
+        # A branch name reused by a later run (an old PR merged long ago, the new one open)
+        # still lists the old merged PR. A merged PR whose merge commit is already in the run's fork point
+        # (start_sha) belongs to an earlier run and must not count as this run's merge.
+        def _stale(p: dict[str, Any]) -> bool:
+            mc = p.get("mergeCommit")
+            oid = mc.get("oid") if isinstance(mc, dict) else None
+            return bool(start_sha and oid and p.get("state") == "MERGED" and g.is_ancestor(oid, start_sha))
+
+        stale = [p for p in items if _stale(p)]
+        if stale:
+            f.detail.append("ignored PR(s) merged before this run: " + ", ".join(f"#{p.get('number')}" for p in stale))
+        items = [p for p in items if not _stale(p)]
         merged = [p for p in items if p.get("state") == "MERGED"]
         chosen = merged[0] if merged else (items[0] if items else None)
         if chosen:

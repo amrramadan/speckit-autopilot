@@ -98,6 +98,11 @@ class Config:
 
     # ---- repair / routing -----------------------------------------------------------
     max_repairs_per_phase: int = 2
+    # a worker turn that fails because the model API itself refused or dropped the call (403 "Attention Required",
+    # 429/5xx/529, connection errors) is re-sent to the same session after a wait, without spending a repair round;
+    # waits double from transient_api_backoff_s (capped at 15 min). Past the cap the old path (repairs) takes over.
+    transient_api_retries: int = 5
+    transient_api_backoff_s: float = 60.0
     max_back_edges: int = 3
     max_back_per_target: int = 1
     # analyze: with the gate passing (no CRITICAL/HIGH), the judge's fixes for the remaining LOW/MEDIUM findings are
@@ -372,6 +377,8 @@ def validate(cfg: Config) -> None:
         raise ConfigError("auto_resume must be >= 0")
     if cfg.max_repairs_per_phase < 0 or cfg.max_back_edges < 0:
         raise ConfigError("repair / back-edge limits must be >= 0")
+    if cfg.transient_api_retries < 0 or cfg.transient_api_backoff_s < 0:
+        raise ConfigError("transient_api_retries and transient_api_backoff_s must be >= 0")
     if cfg.spec_id_style not in ("number", "key"):
         raise ConfigError("spec_id_style must be 'number' or 'key'")
     if cfg.status_marker_style not in ("html", "visible"):

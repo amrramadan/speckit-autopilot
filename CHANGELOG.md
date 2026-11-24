@@ -25,6 +25,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- A worker turn that fails because the model API refused or dropped the call (403 block page, 429, 5xx, connection
+  errors) waits and is re-sent to the same session instead of spending a repair round (`transient_api_retries = 5`,
+  `transient_api_backoff_s = 60`, doubling up to 15 minutes).
+- Ship no longer mistakes an earlier run's merged PR on the same branch name for this run's merge.
 - A judge "forward" after analyze or review used up its repairs always halted ("the deterministic gate still
   fails"), because those phases cannot be re-gated without a fresh run. It now advances when the last round's
   deterministic gate passed and only judge-requested, non-blocking work was left.

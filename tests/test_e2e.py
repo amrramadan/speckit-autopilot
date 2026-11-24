@@ -704,6 +704,55 @@ def test_turn_timeout_interrupts_then_repair_passes(tmp_path):
     assert (rec.status, rec.attempts, rec.repairs) == ("passed", 1, 1)
 
 
+def test_transient_api_error_waits_and_resends_without_a_repair_round(tmp_path):
+    # Seen in practice: three "403 Attention Required | Cloudflare" turns in 2 minutes used up implement's
+    # last three repair rounds and halted the run. A blocked API call is the environment, not the worker's work.
+    w = World(tmp_path)
+    w.api_error_in = {"plan": 2}
+    runner, *_ = make_runner(w, transient_api_backoff_s=0.0)
+    out = run(runner)
+    assert out.status == "completed", out.reason
+
+    retries = events(w, "api_retry", phase="plan")
+    assert [e["attempt"] for e in retries] == [1, 2]
+    assert all("403" in e["reason"] for e in retries)
+    assert events(w, "repair", phase="plan") == []
+    assert events(w, "conversation_failed", phase="plan") == []
+    rec = state(w).phase("plan")
+    assert (rec.status, rec.attempts, rec.repairs) == ("passed", 1, 0)
+    # the same session got the same message again (twice): no new session, nothing lost
+    assert {e["session"] for e in retries} == {retries[0]["session"]}
+    sent = [m for label, m in w.messages if label == retries[0]["session"]]
+    assert sum(1 for m in sent if m.startswith("/speckit-plan")) == 3
+
+
+def test_transient_api_error_beyond_the_retry_cap_falls_back_to_repairs(tmp_path):
+    w = World(tmp_path)
+    w.api_error_in = {"plan": 99}
+    runner, *_ = make_runner(w, transient_api_backoff_s=0.0, transient_api_retries=1)
+    out = run(runner)
+
+    assert out.status == "halted"
+    st = state(w)
+    assert st.halt["phase"] == "plan"
+    assert any("403" in f for f in st.halt["failed"])
+    assert len(events(w, "repair", phase="plan")) == 2  # the retry cap spent, the old path takes over
+    assert len(events(w, "api_retry", phase="plan")) == 3  # one wait per conversation (initial + 2 repairs)
+    assert_nothing_shipped(w, st)
+
+
+def test_only_transient_api_errors_count_as_transient():
+    from speckit_autopilot.runner import is_transient_api_error
+
+    assert is_transient_api_error("Failed to authenticate. API Error: 403 Attention Required! | Cloudflare")
+    assert is_transient_api_error("API Error: 529 Overloaded")
+    assert is_transient_api_error("API Error: 500 Internal server error")
+    assert is_transient_api_error("", ["APIConnectionError: Connection error."])
+    assert not is_transient_api_error("error_max_turns")
+    assert not is_transient_api_error("I could not finish: the test suite fails with 403 Forbidden from the app")
+    assert not is_transient_api_error("API Error: 400 invalid_request_error: prompt is too long")
+
+
 def test_turn_timeout_every_attempt_halts(tmp_path):
     w = World(tmp_path)
     w.hang_in = {"plan": 99}
