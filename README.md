@@ -213,6 +213,9 @@ what to do and prints the resume command).
   agents". The worker is told never to tick them; ticking, removing or relabelling one fails the implement and review
   gates. Open ones pause the run before ship (`human_tasks_block_ship = true`). Do the work, tick them on the
   feature branch, then `--resume`. With `false` the run ships and lists them in `REPORT.md` and the Linear comment.
+- **Founder decisions** with `founder_decisions = "agent"` (default `"human"`): a human-only task that is only a
+  decision (`FOUNDER GATE: approve …`) is decided by the judge before implement, recorded as the decision agent's own
+  call (never as a person's approval), and listed in `REPORT.md`. Work a person performs still waits for a person.
 - **Checklists** (`<feature dir>/checklists/*.md`) with `checklists_gate = "halt"`: unchecked items pause the run
   before implement. With the default `"judge"`, the judge answers speckit-implement's "proceed anyway?" question.
 

@@ -40,6 +40,8 @@ from .prompts import (
     RunContext,
     halt_comment_text,
     handoff_brief,
+    DELEGATED_WORKER_APPEND,
+    delegated_note,
     human_tasks_note,
     linear_closeout_prompt,
     repair_message,
@@ -502,7 +504,7 @@ class Runner:
             if i <= index("implement"):
                 # an operator restart of implement (or earlier) takes a new snapshot of the human-only tasks; a plain
                 # --resume keeps the first one so a tick made before a crash is still caught
-                for k in ("human_before", "human_keys", "human_carry"):
+                for k in ("human_before", "human_keys", "human_carry", "delegated", "delegation_left"):
                     self.state.flags.pop(k, None)
             self._persist_force_rerun()
             return i
@@ -760,7 +762,7 @@ class Runner:
                 # analyze/review need a fresh run; skip only if nothing changed since they passed (DoD included)
                 return bool(rec.artifact_hashes) and rec.artifact_hashes == self._artifact_hashes(phase)
             elif phase == "implement":
-                done, total = G.task_progress(self.feature_dir)
+                done, total = G.task_progress(self.feature_dir, self._delegated())
                 if total == 0 or done < total:
                     return False
                 gate = await self._implement_gate()
@@ -990,18 +992,58 @@ class Runner:
     # ---------------------------------------------------------------- S3: implement
     async def _phase_implement(self, rec) -> PhaseResult:
         st = self.state
+        await self._delegate_founder_decisions()
         if "human_before" not in st.flags:
             # taken once, before the first implement session, and persisted: a resume keeps this first snapshot
             st.flags["human_before"] = self._take_human_snapshot()
             self.log.emit("human_tasks_snapshot", tasks=st.flags["human_before"])
             self.save()
-        done, _total = G.task_progress(self.feature_dir)
+        done, _total = G.task_progress(self.feature_dir, self._delegated())
         conv = await self._implement_sessions(first=done == 0)
         if self._route_note:
             # routed back (e.g. review found a code defect): every task may already be [X]; make the defect explicit
             sess = self.session if (self.session is not None and not self.reset_pending) else await self._fresh_session("implement", "fix what the later phase found", failed=self._route_note)
             conv = await self._converse("implement", sess, repair_message("implement", self._route_note, round_no=1, max_rounds=1) + self._human_note(), facts_fn=self._implement_facts)
         return await self._gate_loop("implement", rec, self._implement_gate, conv)
+
+    # ---------------------------------------------------------------- founder_decisions = "agent"
+    def _delegated(self) -> dict[str, str]:
+        """{id: task_key} of the human-only tasks the judge decided in this run."""
+        return {i: d["key"] for i, d in (self.state.flags.get("delegated") or {}).items()}
+
+    async def _delegate_founder_decisions(self) -> None:
+        """Put every open human-only task that is only a decision (G.is_decision_task) to the judge, once per task. The
+        supervisor picks the tasks and keeps the record; a worker can neither ask for a task nor widen a decision.
+        Anything but a clear "decide" leaves the task with the person."""
+        st = self.state
+        if self.cfg.founder_decisions != "agent" or not st.feature_dir:
+            return
+        cmds = self._pipeline_cmds()
+        for t in self._run_human_tasks():
+            key = G.task_key(t.text)
+            left = st.flags.setdefault("delegation_left", {})
+            # a task already ticked is never offered: that would launder an agent's tick
+            if t.done or not key or left.get(t.id) == key or not G.is_decision_task(t) or G.pipeline_step(t, cmds):
+                continue
+            jr = await self._judge_call(self.judge.gate, self._judge_req("gate", "implement", {"task_id": t.id, "task_text": f"{t.text}\n{t.body}".strip()}))
+            self._account_judge(jr, "implement")
+            if not jr.ok:  # not recorded as left: the next entry asks again
+                self.log.emit("founder_decision", task=t.id, outcome="leave_to_person", reason=jr.error, summary=f"{t.id} stays with a person (judge output invalid)")
+                continue
+            d = jr.data["decision"]
+            decided = jr.data["outcome"] == "decide" and bool(d["chosen"].strip())
+            label = "" if decided else "left to a person: "
+            self.decisions.add_judge_decisions("implement", "gate", [{**d, "item": f"{t.id} (founder decision, delegated): {t.text[:200]}", "chosen": label + d["chosen"]}], attempt=st.phase("implement").attempts)
+            if jr.data.get("escalate"):
+                self._escalate("implement", jr.data.get("escalate_reason") or "judge escalated", item=f"{t.id} {t.text[:100]}")
+            if decided:
+                st.flags.setdefault("delegated", {})[t.id] = {"key": key, "text": t.text[:200], "chosen": d["chosen"], "rationale": d["rationale"], "ts": now_iso()}
+                for k in ("human_before", "human_keys", "human_carry", "human_at_stop"):
+                    (st.flags.get(k) or {}).pop(t.id, None)
+            else:
+                left[t.id] = key
+            self.log.emit("founder_decision", task=t.id, outcome="decide" if decided else "leave_to_person", chosen=d["chosen"], summary=f"{t.id}: {'decided by the decision agent' if decided else 'left to a person'}")
+            self.save()
 
     def _run_human_tasks(self) -> list[G.Task]:
         """Tasks of tasks.md that are human-only for this run: labelled so now, in the implement snapshot (a label an
@@ -1011,7 +1053,7 @@ class Runner:
             return []
         before = self.state.flags.get("human_before") or {}
         carry = self.state.flags.get("human_carry") or {}
-        return [t for t in G.feature_tasks(self.feature_dir) if t.human or t.id in before or self._carried(t, carry)]
+        return [t for t in G.feature_tasks(self.feature_dir, self._delegated()) if t.human or t.id in before or self._carried(t, carry)]
 
     @staticmethod
     def _carried(t: G.Task, carry: dict[str, str]) -> bool:
@@ -1039,7 +1081,9 @@ class Runner:
         if not self.state.feature_dir:
             return ""
         before = self.state.flags.get("human_before") or {}
-        return human_tasks_note([t.id for t in self._run_human_tasks() if not t.done or before.get(t.id) is False])
+        open_ids = {t.id for t in G.feature_tasks(self.feature_dir, self._delegated()) if not t.human and not t.done}
+        decided = {i: d for i, d in (self.state.flags.get("delegated") or {}).items() if i in open_ids}
+        return delegated_note(decided) + human_tasks_note([t.id for t in self._run_human_tasks() if not t.done or before.get(t.id) is False])
 
     def _take_human_snapshot(self) -> dict[str, bool]:
         """{id: done} of the human-only tasks before the first implement session. A task that was open in the snapshot
@@ -1047,7 +1091,7 @@ class Runner:
         (that is accepted only across a stop), so an agent's tick never becomes the new snapshot."""
         st = self.state
         carry = st.flags.pop("human_carry", None) or {}
-        tasks = G.feature_tasks(self.feature_dir)
+        tasks = G.feature_tasks(self.feature_dir, self._delegated())
         snap = {t.id: t.done for t in tasks if t.human}
         for t in tasks:
             if self._carried(t, carry):
@@ -1061,7 +1105,7 @@ class Runner:
         sessions = 0
         conv = Conversation("failed", reason="not started")
         while True:
-            done_before, total = G.task_progress(self.feature_dir)
+            done_before, total = G.task_progress(self.feature_dir, self._delegated())
             sessions += 1
             if sessions > self.cfg.implement_max_sessions:
                 return Conversation("failed", conv.text, reason=f"implement used {self.cfg.implement_max_sessions} sessions")
@@ -1069,7 +1113,7 @@ class Runner:
             sess = await self._fresh_session("implement", purpose, failed=failed)
             msg = f"{cmd} {IMPLEMENT_ARGS if (first and sessions == 1) else IMPLEMENT_CONTINUE_ARGS}{self._human_note()}"
             conv = await self._converse("implement", sess, msg, facts_fn=self._implement_facts, stop_on_reset=True)
-            done_after, total = G.task_progress(self.feature_dir)
+            done_after, total = G.task_progress(self.feature_dir, self._delegated())
             if conv.status in ("reset", "turn_cap"):
                 reason = self.reset_pending or "turn cap reached"
                 await self._reset(reason)
@@ -1080,13 +1124,13 @@ class Runner:
             return conv
 
     def _implement_facts(self) -> dict[str, Any]:
-        done, total = G.task_progress(self.feature_dir)  # agent tasks only
-        return {"tasks_done": done, "tasks_total": total, "unchecked_remaining": total - done, "human_only_open": [h.split(" ", 1)[0] for h in self._human_open()]}
+        done, total = G.task_progress(self.feature_dir, self._delegated())  # agent tasks only
+        return {"tasks_done": done, "tasks_total": total, "unchecked_remaining": total - done, "human_only_open": [h.split(" ", 1)[0] for h in self._human_open()], "delegated_decisions": {i: d["chosen"] for i, d in (self.state.flags.get("delegated") or {}).items()}}
 
     async def _implement_gate(self) -> G.GateResult:
-        done, total = G.task_progress(self.feature_dir)
+        done, total = G.task_progress(self.feature_dir, self._delegated())
         tooling = await self._run_tooling() if (total and done == total) else None
-        g = G.gate_implement(self.repo, self.base, self.feature_dir, tooling, human_before=self.state.flags.get("human_before"))
+        g = G.gate_implement(self.repo, self.base, self.feature_dir, tooling, human_before=self.state.flags.get("human_before"), delegated=self._delegated())
         if tooling is None:
             g.add("tooling", False, "tooling not run because tasks remain unchecked")
         relabelled = [x for x in self._human_tampering() if x.endswith(_RELABELLED)]
@@ -1101,7 +1145,7 @@ class Runner:
         before = self.state.flags.get("human_before")
         if not before or not self.state.feature_dir:
             return []
-        now = {t.id: t for t in G.feature_tasks(self.feature_dir)}
+        now = {t.id: t for t in G.feature_tasks(self.feature_dir, self._delegated())}
         out = []
         for i, was_done in before.items():
             t = now.get(i)
@@ -1784,7 +1828,7 @@ class Runner:
             phase=phase,
             cwd=self.repo,
             gate=gate,
-            system_append=WORKER_SYSTEM_APPEND,
+            system_append=WORKER_SYSTEM_APPEND + (DELEGATED_WORKER_APPEND if self.state.flags.get("delegated") else ""),
             budget_usd=budget,
             model=choice.model,
             effort=choice.effort,

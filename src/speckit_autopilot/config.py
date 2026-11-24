@@ -32,6 +32,7 @@ PHASES: tuple[str, ...] = (
 
 TEST_BASELINE_MODES: tuple[str, ...] = ("none", "base")
 CHECKLISTS_GATE_MODES: tuple[str, ...] = ("judge", "halt")
+FOUNDER_DECISION_MODES: tuple[str, ...] = ("human", "agent")
 SANDBOX_CONFIG_MODES: tuple[str, ...] = ("auto", "on", "off")  # = sessions.SANDBOX_MODES (config stays import-light)
 LINEAR_MODES: tuple[str, ...] = ("auto", "on", "off")
 # what a tracker issue key looks like (ENG-142, APP2-7): "auto" only turns Linear on for such an --issue
@@ -172,6 +173,10 @@ class Config:
     # tasks.md tasks reserved for a person (FOUNDER GATE, Operator steps, [H], [RUN], ...): when any is
     # still open right before ship, the run pauses (exit 0) until a person ticks them and resumes.
     human_tasks_block_ship: bool = True
+    # "human": every such task waits for a person. "agent": open ones that are only a DECISION ("FOUNDER GATE: approve
+    # …", see gates.is_decision_task) are put to the judge before implement; those it decides become agent work (record
+    # the decision, tick the task). It may leave any of them to the person, and work a person performs is never offered.
+    founder_decisions: str = "human"
     # feature_dir/checklists/*.md: "judge" lets the judge answer speckit-implement's "proceed anyway?" question;
     # "halt" pauses the run before implement while any "- [ ]" item is open (the founder ticks them, then --resume).
     checklists_gate: str = "judge"
@@ -375,6 +380,8 @@ def validate(cfg: Config) -> None:
         raise ConfigError(f"test_baseline must be one of {', '.join(TEST_BASELINE_MODES)} (got {cfg.test_baseline!r})")
     if cfg.checklists_gate not in CHECKLISTS_GATE_MODES:
         raise ConfigError(f"checklists_gate must be one of {', '.join(CHECKLISTS_GATE_MODES)} (got {cfg.checklists_gate!r})")
+    if cfg.founder_decisions not in FOUNDER_DECISION_MODES:
+        raise ConfigError(f"founder_decisions must be one of {', '.join(FOUNDER_DECISION_MODES)} (got {cfg.founder_decisions!r})")
     if cfg.linear not in LINEAR_MODES:
         raise ConfigError(f"linear must be one of {', '.join(LINEAR_MODES)} (got {cfg.linear!r})")
     if cfg.sandbox not in SANDBOX_CONFIG_MODES:

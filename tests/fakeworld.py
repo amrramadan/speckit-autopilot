@@ -257,6 +257,8 @@ class World:
         self.feature_start_hands_back = True
         self.analyze_trailers: list[str | None] = []  # per analyze run: the ANALYZE_SUMMARY reply (None: counts of the table)
         self.tasks_md = TASKS_MD  # what /speckit-tasks writes
+        self.delegated_seen: set[str] = set()  # ids the implement messages listed as delegated decisions
+        self.follow_delegated = True  # the implementer ticks the tasks listed under DELEGATED DECISIONS
         self.tick_human = False  # a misbehaving implementer that also ticks human-only tasks
         self.checklists: dict[str, str] = {}  # checklists/<name> -> content, written with the plan
         self.spec_front_matter = ""  # e.g. Bravo's "---\nlinear:\n  issueId: ENG-142\n  shared: true\n---\n"
@@ -370,6 +372,7 @@ class World:
             return FakeTurn("Applied the approved edits.", action=lambda _s: self._apply_edit(s), tool_calls=[("Edit", {"file_path": str(self.feature_dir(s) / "tasks.md")})])
         if msg.startswith("/speckit-implement") or (phase == "implement" and msg.strip().lower() == "continue"):
             self.implement_turns += 1
+            self._note_delegated(msg)
             pct = 95 if (self.implement_ctx_high_after and self.implement_turns >= self.implement_ctx_high_after) else 20
             return FakeTurn("", context_pct=pct, action=lambda _s: self._implement_one_phase(s), tool_calls=[("Edit", {"file_path": str(self.repo / "src" / "filters.py")})])
         if msg.startswith("AUTOPILOT REPAIR"):
@@ -433,7 +436,11 @@ class World:
         if not line.startswith("- [ ]"):
             return False
         tasks = parse_tasks(line)
-        return self.tick_human or not (tasks and tasks[0].human)
+        return self.tick_human or not (tasks and tasks[0].human) or tasks[0].id in self.delegated_seen
+
+    def _note_delegated(self, msg: str) -> None:
+        if self.follow_delegated and "DELEGATED DECISIONS" in msg:
+            self.delegated_seen |= set(re.findall(r"^- (T\d+): ", msg, re.M))
 
     def _implement_one_phase(self, s: FakeSession) -> None:
         p = self.feature_dir(s) / "tasks.md"
@@ -464,6 +471,7 @@ class World:
 
     def _repair(self, s: FakeSession, msg: str, phase: str) -> None:
         self.repairs_seen.append((phase, msg))
+        self._note_delegated(msg)
         if "all-tasks-checked" in msg:
             self._implement_one_phase(s)
         if "human-tasks-untouched" in msg:
@@ -549,6 +557,7 @@ class JudgeScript:
         self.escalate_in: str | None = None
         self.analyze_accept_all = False
         self.analyze_fix_nonblocking = False  # like the real judge: also ask to fix the MEDIUM/LOW rows
+        self.gates: dict[str, Any] = {}  # founder_decisions=agent: task id -> "decide" | "leave_to_person" | a raw dict | None
         self.review_fix_nits = False  # like the real judge: approve fixes for a blocker-free review's nits
 
     def __call__(self, req: JudgeRequest) -> dict[str, Any] | None:
@@ -570,6 +579,11 @@ class JudgeScript:
         if m == "route":
             r = self.route_action.get(ph, {"action": "halt", "reason": "cannot fix"})
             return {"action": r["action"], "target_phase": r.get("target"), "reason": r.get("reason", "scripted")}
+        if m == "gate":
+            out = self.gates.get(req.payload["task_id"], "decide")
+            if not isinstance(out, str):
+                return out
+            return {"outcome": out, "decision": decision("gate", "approve the Organic copy as written", impact="medium", rationale="matches spec FR-001"), "escalate": False, "escalate_reason": ""}
         if m == "answer":
             qs = req.payload.get("questions", [])
             return {"answers": [{"question": q["question"], "labels": [q["options"][1]["label"]]} for q in qs], "decisions": [decision(q["question"], q["options"][1]["label"], recommended=q["options"][0]["label"], followed=False, rationale="local storage fits the evidence")], "escalate": False, "escalate_reason": ""}

@@ -154,6 +154,7 @@ absent (or `None` internally).
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `human_tasks_block_ship` | bool | `true` | Open human-only tasks in `tasks.md` pause the run before ship. `false`: ship anyway and list them in the report and the Linear comment. |
+| `founder_decisions` | str | `"human"` | `human`: every human-only task waits for a person. `agent`: an open human-only task that is only a decision (`FOUNDER GATE: approve …`, `[H] choose …`) is put to the judge before implement. If it decides, the worker records the decision as the decision agent's and ticks the task. The judge leaves a decision to the person when it needs another party, outside facts, money, credentials, production access or a constitution amendment. Operator steps, `[RUN]` / `[MANUAL]` tasks and "not for agents" tasks are never offered. A high-impact decision can still escalate and hold the ship. |
 | `checklists_gate` | str | `"judge"` | `judge`: the judge answers speckit-implement's unchecked-checklist question. `halt`: unchecked items in `<feature dir>/checklists/*.md` pause the run before implement. |
 
 ### Linear keys

@@ -201,6 +201,7 @@ async def run_preflight(
         "human-owned work",
         "INFO",
         f"open human-only tasks before ship: {'pause' if cfg.human_tasks_block_ship else 'ship anyway (listed in the report + Linear)'} · "
+        f"founder decisions in tasks.md: {'the judge decides (it may leave one to a person)' if cfg.founder_decisions == 'agent' else 'a person'} · "
         f"unchecked checklists before implement: {'pause' if cfg.checklists_gate == 'halt' else 'the judge answers speckit-implement'} · test_baseline={cfg.test_baseline}",
     )
     if cfg.spec_id_style == "key" and not cfg.spec and not cfg.spec_title_regex:

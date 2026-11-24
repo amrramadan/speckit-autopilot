@@ -7,6 +7,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `founder_decisions` (config, default `"human"`): with `"agent"` the judge takes the human-only tasks that are only a
+  decision (`FOUNDER GATE: approve …`) before implement. The decision is recorded as the decision agent's and listed
+  in the report; work a person performs is never delegated, and the judge may leave a decision to the person.
 - `auto_resume` (config) / `--auto-resume N` (CLI): a halted run resumes itself up to N times, re-running the halted
   phase with fresh repair rounds. Budget, wall-clock and wrong-workspace halts, and a halt that repeats word for
   word, still stop. Default `0` (off).
