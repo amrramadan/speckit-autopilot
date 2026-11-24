@@ -32,6 +32,7 @@ PHASES: tuple[str, ...] = (
 
 TEST_BASELINE_MODES: tuple[str, ...] = ("none", "base")
 CHECKLISTS_GATE_MODES: tuple[str, ...] = ("judge", "halt")
+FOUNDER_DECISION_MODES: tuple[str, ...] = ("human", "agent")
 SANDBOX_CONFIG_MODES: tuple[str, ...] = ("auto", "on", "off")  # = sessions.SANDBOX_MODES (config stays import-light)
 LINEAR_MODES: tuple[str, ...] = ("auto", "on", "off")
 # what a tracker issue key looks like (ENG-142, APP2-7): "auto" only turns Linear on for such an --issue
@@ -97,12 +98,21 @@ class Config:
 
     # ---- repair / routing -----------------------------------------------------------
     max_repairs_per_phase: int = 2
+    # a worker turn that fails because the model API itself refused or dropped the call (403 "Attention Required",
+    # 429/5xx/529, connection errors) is re-sent to the same session after a wait, without spending a repair round;
+    # waits double from transient_api_backoff_s (capped at 15 min). Past the cap the old path (repairs) takes over.
+    transient_api_retries: int = 5
+    transient_api_backoff_s: float = 60.0
     max_back_edges: int = 3
     max_back_per_target: int = 1
     # analyze: with the gate passing (no CRITICAL/HIGH), the judge's fixes for the remaining LOW/MEDIUM findings are
     # applied once and the phase passes; true re-runs a fresh analyze after them (the old loop, which can run out of
     # repairs chasing new LOW items)
     analyze_recheck_nonblocking: bool = False
+    # review: with no blockers left, the judge's approved nit fixes are applied once, then tooling + the DoD check
+    # decide in the same session; true re-runs a fresh review after them (the old loop: every fresh review finds new
+    # nits, so it could halt with zero blockers once the repairs ran out)
+    review_recheck_nonblocking: bool = False
 
     # ---- limits: none by default ------------------------------------------------------
     # Runs use the Claude subscription, so there is no USD budget and no wall-clock limit unless a config sets one
@@ -125,6 +135,9 @@ class Config:
 
     # ---- run flags ------------------------------------------------------------------
     allow_escalations: bool = False
+    # a halted run resumes itself up to this many times (each resume re-runs the halted phase with fresh repair
+    # rounds); budget / wall-clock / wrong-workspace halts and a halt that repeats word for word still stop. 0 = off
+    auto_resume: int = 0
     until: str | None = None  # a phase to stop before; "none" clears the stop a resumed run was started with
     from_phase: str | None = None
     resume: bool = False
@@ -165,6 +178,10 @@ class Config:
     # tasks.md tasks reserved for a person (FOUNDER GATE, Operator steps, [H], [RUN], ...): when any is
     # still open right before ship, the run pauses (exit 0) until a person ticks them and resumes.
     human_tasks_block_ship: bool = True
+    # "human": every such task waits for a person. "agent": open ones that are only a DECISION ("FOUNDER GATE: approve
+    # …", see gates.is_decision_task) are put to the judge before implement; those it decides become agent work (record
+    # the decision, tick the task). It may leave any of them to the person, and work a person performs is never offered.
+    founder_decisions: str = "human"
     # feature_dir/checklists/*.md: "judge" lets the judge answer speckit-implement's "proceed anyway?" question;
     # "halt" pauses the run before implement while any "- [ ]" item is open (the founder ticks them, then --resume).
     checklists_gate: str = "judge"
@@ -356,8 +373,12 @@ def validate(cfg: Config) -> None:
             raise ConfigError(f"--{name.replace('_phase', '')} must be one of {', '.join(PHASES)} (got {val!r})")
     if not (1 <= cfg.context_reset_pct <= 100):
         raise ConfigError("context_reset_pct must be within 1..100")
+    if cfg.auto_resume < 0:
+        raise ConfigError("auto_resume must be >= 0")
     if cfg.max_repairs_per_phase < 0 or cfg.max_back_edges < 0:
         raise ConfigError("repair / back-edge limits must be >= 0")
+    if cfg.transient_api_retries < 0 or cfg.transient_api_backoff_s < 0:
+        raise ConfigError("transient_api_retries and transient_api_backoff_s must be >= 0")
     if cfg.spec_id_style not in ("number", "key"):
         raise ConfigError("spec_id_style must be 'number' or 'key'")
     if cfg.status_marker_style not in ("html", "visible"):
@@ -366,6 +387,8 @@ def validate(cfg: Config) -> None:
         raise ConfigError(f"test_baseline must be one of {', '.join(TEST_BASELINE_MODES)} (got {cfg.test_baseline!r})")
     if cfg.checklists_gate not in CHECKLISTS_GATE_MODES:
         raise ConfigError(f"checklists_gate must be one of {', '.join(CHECKLISTS_GATE_MODES)} (got {cfg.checklists_gate!r})")
+    if cfg.founder_decisions not in FOUNDER_DECISION_MODES:
+        raise ConfigError(f"founder_decisions must be one of {', '.join(FOUNDER_DECISION_MODES)} (got {cfg.founder_decisions!r})")
     if cfg.linear not in LINEAR_MODES:
         raise ConfigError(f"linear must be one of {', '.join(LINEAR_MODES)} (got {cfg.linear!r})")
     if cfg.sandbox not in SANDBOX_CONFIG_MODES:

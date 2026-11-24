@@ -515,6 +515,44 @@ def pipeline_step(task: Task, commands: tuple[str, ...]) -> str | None:
     return m.group("cmd") if m else None
 
 
+# A human-only task whose whole job is a decision ("FOUNDER GATE: approve widening EXC-005 …"), as opposed to work a person
+# performs (operator steps, device runs, [RUN] / [MANUAL] tags). Only these may be delegated (founder_decisions = "agent").
+# Deliberately narrow: the description, after its label, must open with a decision verb, or the label itself must say
+# decision / approval / sign-off. "Confirm", "verify" and "review" are checks somebody carries out, so they do not count.
+_DECISION_VERB = re.compile(
+    r"^[*_`\s]*(?:(?:the|a)\s+)?(?:(?:founders?|owner|product\s+owner)\s+)?(?:to\s+)?"
+    r"(?:approves?|ratif(?:y|ies)|decides?|chooses?|picks?|selects?|accepts?|agrees?|authori[sz]es?|signs?[ -]?off)\b",
+    re.I,
+)
+_DECISION_LABEL = re.compile(r"\b(?:decisions?|approval|sign-?off)\b", re.I)
+_LABEL_REST = re.compile(r"^[*_ \t]*(?:\([^()\n]{0,200}\))?[*_ \t]*[:.,—–-]*[*_ \t]*")
+_DECISION_TAGS = re.compile(r"^(?:P|H|US\d+)$")
+_OPERATOR_WORK = re.compile(r"\boperators?\b|\bperson\b", re.I)
+
+
+def is_decision_task(task: Task) -> bool:
+    """A human-only task that is only a decision. False for a task that says itself that no agent may tick it."""
+    if not task.human:
+        return False
+    tags_end = TASK_LEAD_TAGS.match(task.text).end()
+    if not all(_DECISION_TAGS.match(t.strip()) for t in TASK_TAG.findall(task.text[:tags_end])):
+        return False  # [RUN], [MANUAL], [OPERATOR], any tag a legend reserves for a person's work
+    para = re.sub(r"[*`]", "", " ".join([task.text, *(task.body or "").splitlines()[:3]]))
+    if HUMAN_ANYWHERE.search(para) or HUMAN_PAREN_ANYWHERE.search(para):
+        return False
+    lead = task.text[tags_end:]
+    m = _label_match(lead) or re.match(r"^[*_ \t]*(?:[A-Za-z][\w-]*[ \t]+)?gate\b[^:—–\n]{0,60}[:—–]", lead, re.I)
+    if not m:
+        return bool(_DECISION_VERB.match(lead))  # "[H] approve the copy"
+    label, rest = lead[: m.end()], lead[m.end():]
+    if _OPERATOR_WORK.search(label):
+        return False
+    if label.rstrip().endswith("("):  # "FOUNDER GATE (answered …): approve …": skip the parenthetical
+        rest = rest.partition(")")[2]
+    rest = rest[_LABEL_REST.match(rest).end():]
+    return bool(_DECISION_VERB.match(rest) or _DECISION_LABEL.search(label))
+
+
 def parse_tasks(text: str) -> list[Task]:
     out: list[Task] = []
     cur: Task | None = None
@@ -577,13 +615,21 @@ def gate_tasks(feature_dir: Path, repo: Path) -> GateResult:
     return r
 
 
-def feature_tasks(feature_dir: Path) -> list[Task]:
-    return parse_tasks(without_code_fences(strip_front_matter(read(feature_dir / "tasks.md"))))
+def feature_tasks(feature_dir: Path, delegated: dict[str, str] | None = None) -> list[Task]:
+    """Tasks of tasks.md. ``delegated`` maps ids to the task_key of human-only tasks the judge decided
+    (founder_decisions = "agent"): those count as agent work while the id still names the same task (the worker may
+    append its record to the line, so the key is compared as a prefix)."""
+    tasks = parse_tasks(without_code_fences(strip_front_matter(read(feature_dir / "tasks.md"))))
+    for t in tasks:
+        key = (delegated or {}).get(t.id)
+        if t.human and key and (task_key(t.text) + " ").startswith(key + " "):
+            t.human = False
+    return tasks
 
 
-def task_progress(feature_dir: Path) -> tuple[int, int]:
+def task_progress(feature_dir: Path, delegated: dict[str, str] | None = None) -> tuple[int, int]:
     """(done, total) over AGENT tasks only; human-only tasks are reported by human_tasks()."""
-    tasks = [t for t in feature_tasks(feature_dir) if not t.human]
+    tasks = [t for t in feature_tasks(feature_dir, delegated) if not t.human]
     return sum(1 for t in tasks if t.done), len(tasks)
 
 
@@ -1404,11 +1450,11 @@ def run_tooling(
     return tr
 
 
-def gate_implement(repo: Path, base: str, feature_dir: Path, tooling: ToolingResult | None, *, human_before: dict[str, bool] | None = None) -> GateResult:
+def gate_implement(repo: Path, base: str, feature_dir: Path, tooling: ToolingResult | None, *, human_before: dict[str, bool] | None = None, delegated: dict[str, str] | None = None) -> GateResult:
     """``human_before`` maps each HUMAN-only task id to its done flag before implement started (e.g.
     ``{t.id: t.done for t in human_tasks(fd)}``); a task open then and ticked (or deleted) now fails the gate."""
     r = GateResult("implement")
-    tasks = feature_tasks(feature_dir)
+    tasks = feature_tasks(feature_dir, delegated)
     agent = [t for t in tasks if not t.human]
     human = [t for t in tasks if t.human]
     done, total = sum(1 for t in agent if t.done), len(agent)
@@ -1475,6 +1521,18 @@ def ship_facts(repo: Path, base: str, feature_branch: str, *, fetch: bool = True
             items = [p for p in json.loads(pr.stdout) if p.get("baseRefName") in (base, None)]
         except json.JSONDecodeError:
             items = []
+        # A branch name reused by a later run (an old PR merged long ago, the new one open)
+        # still lists the old merged PR. A merged PR whose merge commit is already in the run's fork point
+        # (start_sha) belongs to an earlier run and must not count as this run's merge.
+        def _stale(p: dict[str, Any]) -> bool:
+            mc = p.get("mergeCommit")
+            oid = mc.get("oid") if isinstance(mc, dict) else None
+            return bool(start_sha and oid and p.get("state") == "MERGED" and g.is_ancestor(oid, start_sha))
+
+        stale = [p for p in items if _stale(p)]
+        if stale:
+            f.detail.append("ignored PR(s) merged before this run: " + ", ".join(f"#{p.get('number')}" for p in stale))
+        items = [p for p in items if not _stale(p)]
         merged = [p for p in items if p.get("state") == "MERGED"]
         chosen = merged[0] if merged else (items[0] if items else None)
         if chosen:

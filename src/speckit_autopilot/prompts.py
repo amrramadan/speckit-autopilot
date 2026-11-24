@@ -174,6 +174,28 @@ def human_tasks_note(task_ids: list[str]) -> str:
     )
 
 
+DELEGATED_WORKER_APPEND = """\
+- Exception to the rule about a person's tasks (founder_decisions = "agent"): a task the pipeline lists under DELEGATED \
+DECISIONS has been decided by the decision agent. Carry out exactly that decision, record it where the task says, and tick \
+that task. Every other person's task stays untouched.
+"""
+
+
+def delegated_note(decided: dict[str, dict[str, str]]) -> str:
+    """Appended to implement messages: the founder decisions the judge took for this run (founder_decisions = "agent")."""
+    if not decided:
+        return ""
+    lines = [f"\n- {i}: {_short(d['chosen'], 1500)} (reason: {_short(d['rationale'], 600)})" for i, d in decided.items()]
+    return (
+        "\n\nDELEGATED DECISIONS (the decision agent decided these human-only tasks; they are now yours):"
+        + "".join(lines)
+        + "\nFor each: record the decision where the task says, attributed to \"Spec Kit Autopilot decision agent "
+        "(founder_decisions = agent)\" with today's date and the reason, never as a person's own approval; do what "
+        "follows from it; keep the task's label and text, and tick it. A decision that rejects the request is still recorded and ticked, "
+        "and the tasks that depend on it follow that decision."
+    )
+
+
 def ship_resume_message(facts: Any, base: str, feature_branch: str) -> str:
     if facts.pr_number and facts.pr_state == "OPEN":
         return (
@@ -346,7 +368,8 @@ PHASE_REPLY_FORMATS = {
         "reply 'continue' (status=needs_reply). The checklist gate asks 'Do you want to proceed with implementation anyway? (yes/no)': "
         "reply 'yes' or 'no'. status=done only when the worker reports every task complete. Human-only tasks (facts.human_only_open: "
         "FOUNDER GATE, Operator steps, ...) belong to a person: never ask the worker to do or tick them, and they do not count as "
-        "remaining work (unchecked_remaining already excludes them)."
+        "remaining work (unchecked_remaining already excludes them). Tasks in facts.delegated_decisions were already decided "
+        "(founder_decisions = agent): the worker records that decision and ticks them; never reopen it."
     ),
     "review": (
         "The review command is REPORT-ONLY (labels: blocker / nit / question; '## Blockers', '## Nits', '## Questions'). Every blocker must be "
@@ -424,6 +447,25 @@ def judge_prompt(req: Any) -> str:
                 "fixes are mechanical. Leave next_worker null to keep the automatic escalation. "
                 f"Allowed models: {', '.join(wa.get('models') or [])}. Allowed efforts: {', '.join(wa.get('efforts') or [])}.",
             ]
+    elif req.mode == "gate":
+        parts += [
+            "",
+            "The task below is reserved for a person (the founder / product owner), who has delegated such decisions to you "
+            "(founder_decisions = \"agent\"). Take it: weigh the options in the artifacts and choose the best-supported one, which "
+            "may be to reject the request. `chosen` is the instruction the worker follows, so state the exact outcome and its scope "
+            "(approve only what the task asks for). This is a delegated product or technical decision, so needing the founder's "
+            "approval is not by itself a reason to leave it.",
+            "outcome=leave_to_person (with the reason in `rationale`) only when the decision cannot be yours: it needs somebody "
+            "else's agreement (legal counsel, a brand owner, a customer, an external party), a fact or observation that is not in "
+            "the repository, spending money, credentials or a production / external-account action, an amendment of "
+            "constitution.md, or weaker tests or security controls without a documented compensating control.",
+            "Set escalate as usual for a high-impact, hard-to-reverse decision.",
+            "",
+            f"TASK {p.get('task_id')}:",
+            "<<<",
+            _clip(p.get("task_text", ""), 6000),
+            ">>>",
+        ]
     elif req.mode == "route":
         src = req.phase.split(":")[0]
         allowed = PHASE_SPECS[src].back_targets if src in PHASE_SPECS else ()

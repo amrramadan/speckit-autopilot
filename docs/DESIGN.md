@@ -610,6 +610,8 @@ labels with sub-groups). If you change a regex, update this block; a test compar
   when the gate already passed (only LOW/MEDIUM findings remain) and `analyze_recheck_nonblocking` is false (the
   default), the judge's fixes are applied once and the phase passes without a re-analyze — a fresh analyze of edited
   docs tends to find new LOW items every pass and would exhaust repairs; implement and review still check the work.
+  When the gate passes on the last round and no repair round is left, those LOW/MEDIUM findings are accepted as
+  they are and the phase passes.
 - **DoD:** every remaining (non-CRITICAL, non-HIGH) finding was fixed or consciously accepted with a reason.
 
 ### implement (S3)
@@ -656,7 +658,11 @@ labels with sub-groups). If you change a regex, update this block; a test compar
   tooling checks (or a failing `tooling` check "tooling not run (fixes pending)"), and, when the feature has
   human-only tasks, `human-tasks-untouched` (`_add_human_untouched_check`).
 - **Repair:** the judge's "Approved, apply these fixes now:" reply (or the generic repair message) is applied in the
-  round's session (`review:apply`); the next round reviews again in a fresh session.
+  round's session (`review:apply`); the next round reviews again in a fresh session. Exception: when the review
+  reports no blockers and `review_recheck_nonblocking` is false (the default), the judge's approved nit fixes are
+  applied once (accepted as they are when no repair round is left), then tooling and the DoD check decide in the
+  same session; a tooling or DoD failure is repaired there too. Only a blocker fix earns a fresh review — a fresh
+  review of edited code finds new nits every pass and would exhaust repairs with nothing must-fix left.
 - **DoD:** every review finding was fixed or consciously accepted; no must-fix finding remains.
 
 ### Ship gate (`_ship_gate`, before ship)
@@ -1032,6 +1038,15 @@ Prose that only mentions a founder, operator or owner stays agent work. A human-
 review or ship step (the command is its first action, e.g. "Operator steps (not for agents): `/cc-review`, then
 `/cc-ship`") is performed by the run itself: it does not hold the ship pause, stays unticked, and the report asks a
 person to tick it.
+
+**Delegated decisions** (`founder_decisions = "agent"`). On entry to implement, before the snapshot, the supervisor
+(`Runner._delegate_founder_decisions`) puts each open human-only task that is only a decision (`gates.is_decision_task`)
+to the judge in mode `gate`, once per task. `decide` stores the decision in `flags.delegated` with the task's text key;
+from then on the task counts as agent work (`feature_tasks(delegated=…)`), the implement messages carry the decision,
+and the worker records and ticks it. `leave_to_person`, or invalid judge output, changes nothing. The worker cannot
+request a delegation, a task that is already ticked is never offered (an agent's tick is not laundered), and a task
+whose id now names different text is a person's again. `--from implement` (or earlier) discards the delegations and
+asks again.
 
 **6. Checklists** (`<feature dir>/checklists/*.md`). With `checklists_gate = "judge"` (default) the decision agent
 answers speckit-implement's "proceed anyway?" question. With `"halt"` (for checklists owned by a person) the run

@@ -148,6 +148,7 @@ current setting and ask you to pick one. Settings apply to the next run or `--re
 | `--from PHASE` | Restart at PHASE; it and every later phase re-run. Needs an existing state. |
 | `--until PHASE` | Stop **before** PHASE (status `paused`, exit 0). `--until none` clears a stop saved by an earlier launch. |
 | `--allow-escalations` | Let the ship gate open although the judge escalated decisions to a human. |
+| `--auto-resume N` | Resume a halted run by itself up to N times (config `auto_resume`); budget, wall-clock and repeated halts still stop. |
 | `--judge-model M`, `--worker-model M` | Override the configured models for this run. |
 | `--dry-run` | Preflight only. With `--preflight-run-tests`: also run the test command once. With `--no-judge-ping`: skip the paid judge ping. |
 | `--skip-preflight` | Start a real run without preflight (not recommended). |
@@ -212,6 +213,9 @@ what to do and prints the resume command).
   agents". The worker is told never to tick them; ticking, removing or relabelling one fails the implement and review
   gates. Open ones pause the run before ship (`human_tasks_block_ship = true`). Do the work, tick them on the
   feature branch, then `--resume`. With `false` the run ships and lists them in `REPORT.md` and the Linear comment.
+- **Founder decisions** with `founder_decisions = "agent"` (default `"human"`): a human-only task that is only a
+  decision (`FOUNDER GATE: approve …`) is decided by the judge before implement, recorded as the decision agent's own
+  call (never as a person's approval), and listed in `REPORT.md`. Work a person performs still waits for a person.
 - **Checklists** (`<feature dir>/checklists/*.md`) with `checklists_gate = "halt"`: unchecked items pause the run
   before implement. With the default `"judge"`, the judge answers speckit-implement's "proceed anyway?" question.
 

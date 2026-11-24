@@ -40,6 +40,8 @@ from .prompts import (
     RunContext,
     halt_comment_text,
     handoff_brief,
+    DELEGATED_WORKER_APPEND,
+    delegated_note,
     human_tasks_note,
     linear_closeout_prompt,
     repair_message,
@@ -84,6 +86,9 @@ class PhaseResult:
     worker_text: str = ""
     halt: Halt | None = None
     routed_to: str | None = None  # the phase already routed back (early route check); the loop jumps there
+    # analyze/review: the last round's deterministic gate passed and only judge-requested work was left. A judge
+    # "forward" may then advance (these phases cannot be re-gated without a fresh run)
+    gate_passed: bool = False
 
 
 @dataclass
@@ -91,6 +96,52 @@ class RunOutcome:
     status: str  # completed | halted | stopped | paused
     reason: str = ""
     report: Path | None = None
+
+
+# halts that another attempt cannot fix: a resume would hit the same wall at once
+AUTO_RESUME_NEVER = ("wrong workspace", "budget", "wall-clock limit")
+
+
+# A worker turn that failed because the model API refused or dropped the call, not because of the worker's work.
+# Matched against the turn's final text and SDK errors only (never tool output), and only on a turn the SDK marked
+# is_error. 400-class request errors (prompt too long, invalid request) are not transient: a resend repeats them.
+_TRANSIENT_API_RE = re.compile(
+    r"API Error: (?:403|408|409|429|5\d\d)\b"
+    r"|Attention Required!? \| Cloudflare"
+    r"|\boverloaded_error\b|\bOverloaded\b"
+    r"|\brate_limit_error\b"
+    r"|APIConnectionError|APITimeoutError|Connection error\.|ECONNRESET|socket hang up",
+)
+TRANSIENT_API_BACKOFF_CAP_S = 900.0
+
+
+def is_transient_api_error(text: str, errors: list[str] | None = None) -> bool:
+    return any(_TRANSIENT_API_RE.search(s or "") for s in [text, *(errors or [])])
+
+
+def auto_resumable(reason: str) -> bool:
+    r = (reason or "").lower()
+    return not any(x in r for x in AUTO_RESUME_NEVER)
+
+
+def run_with_auto_resume(cfg: Config, make_runner: Callable[[Config], "Runner"], echo: Callable[[str], None] = print) -> RunOutcome:
+    """Run, and resume a halted run by itself up to ``cfg.auto_resume`` times. Each resume re-runs the halted phase
+    with fresh repair rounds (the state, decisions and back-edge counts carry over). Stops early on a halt no retry
+    can fix (budget, wall-clock, wrong Linear workspace) or one that repeats word for word."""
+    runner = make_runner(cfg)
+    outcome = asyncio.run(runner.run())
+    last = None
+    for n in range(1, max(0, cfg.auto_resume) + 1):
+        if outcome.status != "halted" or not auto_resumable(outcome.reason) or outcome.reason == last:
+            break
+        last = outcome.reason
+        echo(f"\nAutopilot halted: {outcome.reason}\nAuto-resume {n}/{cfg.auto_resume}: resuming the run.")
+        if getattr(runner, "log", None) is not None:
+            runner.log.emit("auto_resume", attempt=n, max=cfg.auto_resume, reason=outcome.reason[:500], summary=f"auto-resume {n}/{cfg.auto_resume} after: {outcome.reason[:160]}")
+        cfg = dataclasses.replace(cfg, resume=True, from_phase=None)
+        runner = make_runner(cfg)
+        outcome = asyncio.run(runner.run())
+    return outcome
 
 
 def slugify(text: str, words: int = 4) -> str:
@@ -470,7 +521,7 @@ class Runner:
             if i <= index("implement"):
                 # an operator restart of implement (or earlier) takes a new snapshot of the human-only tasks; a plain
                 # --resume keeps the first one so a tick made before a crash is still caught
-                for k in ("human_before", "human_keys", "human_carry"):
+                for k in ("human_before", "human_keys", "human_carry", "delegated", "delegation_left"):
                     self.state.flags.pop(k, None)
             self._persist_force_rerun()
             return i
@@ -728,7 +779,7 @@ class Runner:
                 # analyze/review need a fresh run; skip only if nothing changed since they passed (DoD included)
                 return bool(rec.artifact_hashes) and rec.artifact_hashes == self._artifact_hashes(phase)
             elif phase == "implement":
-                done, total = G.task_progress(self.feature_dir)
+                done, total = G.task_progress(self.feature_dir, self._delegated())
                 if total == 0 or done < total:
                     return False
                 gate = await self._implement_gate()
@@ -912,8 +963,16 @@ class Runner:
             else:
                 last_failed = gate.failed() or ["judge requested fixes for remaining findings"]
             if rec.repairs >= self.cfg.max_repairs_per_phase:
+                if nonblocking and not self.cfg.analyze_recheck_nonblocking:
+                    # the gate passed (no CRITICAL/HIGH) and only LOW/MEDIUM fixes were asked for: with no round left
+                    # they are accepted as they are, not a halt
+                    self.decisions.add_note("analyze", f"Gate passed (no CRITICAL/HIGH); no repair round was left, so the remaining LOW/MEDIUM findings were accepted without the judge's fixes (round {rec.repairs}).")
+                    self.log.emit("analyze_nonblocking_done", phase="analyze", round=rec.repairs, applied=False, summary="gate passed: no repair round left, remaining LOW/MEDIUM findings accepted, analyze done")
+                    await self._close_session("non-blocking findings accepted")
+                    self.save()
+                    return PhaseResult(True, worker_text=text)
                 await self._close_session("analyze repairs exhausted")
-                return PhaseResult(False, last_failed, text)
+                return PhaseResult(False, last_failed, text, gate_passed=gate.passed and read_only)
             rec.repairs += 1
             approval = jr.reply if (jr.status == "needs_reply" and jr.reply.strip()) else self._forced_approval(report, last_failed)
             approval, warn = sanitize_reply(approval, [])
@@ -950,18 +1009,58 @@ class Runner:
     # ---------------------------------------------------------------- S3: implement
     async def _phase_implement(self, rec) -> PhaseResult:
         st = self.state
+        await self._delegate_founder_decisions()
         if "human_before" not in st.flags:
             # taken once, before the first implement session, and persisted: a resume keeps this first snapshot
             st.flags["human_before"] = self._take_human_snapshot()
             self.log.emit("human_tasks_snapshot", tasks=st.flags["human_before"])
             self.save()
-        done, _total = G.task_progress(self.feature_dir)
+        done, _total = G.task_progress(self.feature_dir, self._delegated())
         conv = await self._implement_sessions(first=done == 0)
         if self._route_note:
             # routed back (e.g. review found a code defect): every task may already be [X]; make the defect explicit
             sess = self.session if (self.session is not None and not self.reset_pending) else await self._fresh_session("implement", "fix what the later phase found", failed=self._route_note)
             conv = await self._converse("implement", sess, repair_message("implement", self._route_note, round_no=1, max_rounds=1) + self._human_note(), facts_fn=self._implement_facts)
         return await self._gate_loop("implement", rec, self._implement_gate, conv)
+
+    # ---------------------------------------------------------------- founder_decisions = "agent"
+    def _delegated(self) -> dict[str, str]:
+        """{id: task_key} of the human-only tasks the judge decided in this run."""
+        return {i: d["key"] for i, d in (self.state.flags.get("delegated") or {}).items()}
+
+    async def _delegate_founder_decisions(self) -> None:
+        """Put every open human-only task that is only a decision (G.is_decision_task) to the judge, once per task. The
+        supervisor picks the tasks and keeps the record; a worker can neither ask for a task nor widen a decision.
+        Anything but a clear "decide" leaves the task with the person."""
+        st = self.state
+        if self.cfg.founder_decisions != "agent" or not st.feature_dir:
+            return
+        cmds = self._pipeline_cmds()
+        for t in self._run_human_tasks():
+            key = G.task_key(t.text)
+            left = st.flags.setdefault("delegation_left", {})
+            # a task already ticked is never offered: that would launder an agent's tick
+            if t.done or not key or left.get(t.id) == key or not G.is_decision_task(t) or G.pipeline_step(t, cmds):
+                continue
+            jr = await self._judge_call(self.judge.gate, self._judge_req("gate", "implement", {"task_id": t.id, "task_text": f"{t.text}\n{t.body}".strip()}))
+            self._account_judge(jr, "implement")
+            if not jr.ok:  # not recorded as left: the next entry asks again
+                self.log.emit("founder_decision", task=t.id, outcome="leave_to_person", reason=jr.error, summary=f"{t.id} stays with a person (judge output invalid)")
+                continue
+            d = jr.data["decision"]
+            decided = jr.data["outcome"] == "decide" and bool(d["chosen"].strip())
+            label = "" if decided else "left to a person: "
+            self.decisions.add_judge_decisions("implement", "gate", [{**d, "item": f"{t.id} (founder decision, delegated): {t.text[:200]}", "chosen": label + d["chosen"]}], attempt=st.phase("implement").attempts)
+            if jr.data.get("escalate"):
+                self._escalate("implement", jr.data.get("escalate_reason") or "judge escalated", item=f"{t.id} {t.text[:100]}")
+            if decided:
+                st.flags.setdefault("delegated", {})[t.id] = {"key": key, "text": t.text[:200], "chosen": d["chosen"], "rationale": d["rationale"], "ts": now_iso()}
+                for k in ("human_before", "human_keys", "human_carry", "human_at_stop"):
+                    (st.flags.get(k) or {}).pop(t.id, None)
+            else:
+                left[t.id] = key
+            self.log.emit("founder_decision", task=t.id, outcome="decide" if decided else "leave_to_person", chosen=d["chosen"], summary=f"{t.id}: {'decided by the decision agent' if decided else 'left to a person'}")
+            self.save()
 
     def _run_human_tasks(self) -> list[G.Task]:
         """Tasks of tasks.md that are human-only for this run: labelled so now, in the implement snapshot (a label an
@@ -971,7 +1070,7 @@ class Runner:
             return []
         before = self.state.flags.get("human_before") or {}
         carry = self.state.flags.get("human_carry") or {}
-        return [t for t in G.feature_tasks(self.feature_dir) if t.human or t.id in before or self._carried(t, carry)]
+        return [t for t in G.feature_tasks(self.feature_dir, self._delegated()) if t.human or t.id in before or self._carried(t, carry)]
 
     @staticmethod
     def _carried(t: G.Task, carry: dict[str, str]) -> bool:
@@ -999,7 +1098,9 @@ class Runner:
         if not self.state.feature_dir:
             return ""
         before = self.state.flags.get("human_before") or {}
-        return human_tasks_note([t.id for t in self._run_human_tasks() if not t.done or before.get(t.id) is False])
+        open_ids = {t.id for t in G.feature_tasks(self.feature_dir, self._delegated()) if not t.human and not t.done}
+        decided = {i: d for i, d in (self.state.flags.get("delegated") or {}).items() if i in open_ids}
+        return delegated_note(decided) + human_tasks_note([t.id for t in self._run_human_tasks() if not t.done or before.get(t.id) is False])
 
     def _take_human_snapshot(self) -> dict[str, bool]:
         """{id: done} of the human-only tasks before the first implement session. A task that was open in the snapshot
@@ -1007,7 +1108,7 @@ class Runner:
         (that is accepted only across a stop), so an agent's tick never becomes the new snapshot."""
         st = self.state
         carry = st.flags.pop("human_carry", None) or {}
-        tasks = G.feature_tasks(self.feature_dir)
+        tasks = G.feature_tasks(self.feature_dir, self._delegated())
         snap = {t.id: t.done for t in tasks if t.human}
         for t in tasks:
             if self._carried(t, carry):
@@ -1021,7 +1122,7 @@ class Runner:
         sessions = 0
         conv = Conversation("failed", reason="not started")
         while True:
-            done_before, total = G.task_progress(self.feature_dir)
+            done_before, total = G.task_progress(self.feature_dir, self._delegated())
             sessions += 1
             if sessions > self.cfg.implement_max_sessions:
                 return Conversation("failed", conv.text, reason=f"implement used {self.cfg.implement_max_sessions} sessions")
@@ -1029,7 +1130,7 @@ class Runner:
             sess = await self._fresh_session("implement", purpose, failed=failed)
             msg = f"{cmd} {IMPLEMENT_ARGS if (first and sessions == 1) else IMPLEMENT_CONTINUE_ARGS}{self._human_note()}"
             conv = await self._converse("implement", sess, msg, facts_fn=self._implement_facts, stop_on_reset=True)
-            done_after, total = G.task_progress(self.feature_dir)
+            done_after, total = G.task_progress(self.feature_dir, self._delegated())
             if conv.status in ("reset", "turn_cap"):
                 reason = self.reset_pending or "turn cap reached"
                 await self._reset(reason)
@@ -1040,13 +1141,13 @@ class Runner:
             return conv
 
     def _implement_facts(self) -> dict[str, Any]:
-        done, total = G.task_progress(self.feature_dir)  # agent tasks only
-        return {"tasks_done": done, "tasks_total": total, "unchecked_remaining": total - done, "human_only_open": [h.split(" ", 1)[0] for h in self._human_open()]}
+        done, total = G.task_progress(self.feature_dir, self._delegated())  # agent tasks only
+        return {"tasks_done": done, "tasks_total": total, "unchecked_remaining": total - done, "human_only_open": [h.split(" ", 1)[0] for h in self._human_open()], "delegated_decisions": {i: d["chosen"] for i, d in (self.state.flags.get("delegated") or {}).items()}}
 
     async def _implement_gate(self) -> G.GateResult:
-        done, total = G.task_progress(self.feature_dir)
+        done, total = G.task_progress(self.feature_dir, self._delegated())
         tooling = await self._run_tooling() if (total and done == total) else None
-        g = G.gate_implement(self.repo, self.base, self.feature_dir, tooling, human_before=self.state.flags.get("human_before"))
+        g = G.gate_implement(self.repo, self.base, self.feature_dir, tooling, human_before=self.state.flags.get("human_before"), delegated=self._delegated())
         if tooling is None:
             g.add("tooling", False, "tooling not run because tasks remain unchecked")
         relabelled = [x for x in self._human_tampering() if x.endswith(_RELABELLED)]
@@ -1061,7 +1162,7 @@ class Runner:
         before = self.state.flags.get("human_before")
         if not before or not self.state.feature_dir:
             return []
-        now = {t.id: t for t in G.feature_tasks(self.feature_dir)}
+        now = {t.id: t for t in G.feature_tasks(self.feature_dir, self._delegated())}
         out = []
         for i, was_done in before.items():
             t = now.get(i)
@@ -1172,6 +1273,11 @@ class Runner:
             judged = int(jr.data.get("blocking_issues_remaining", 0))
             if parsed.blockers is not None and judged < parsed.blockers:
                 self.log.emit("judge_disagreement", phase="review", judge_blocking=judged, parsed_blocking=parsed.blockers)
+            if G.gate_review(parsed, None).passed and jr.status in ("done", "needs_reply") and not self.cfg.review_recheck_nonblocking:
+                # no blockers: finish in this session. A fresh review after nit fixes finds new nits every pass (seen in
+                # practice: 4 rounds of 0 blockers + 1-2 nits, then a halt with nothing must-fix left)
+                nit_fix = jr.reply if (jr.status == "needs_reply" and jr.reply.strip()) else None
+                return await self._finish_nonblocking_review(rec, sess, parsed, report_text, nit_fix)
             tooling = await self._run_tooling() if (parsed.blockers == 0 and jr.status == "done") else None
             gate = G.gate_review(parsed, tooling)
             if tooling is None and gate.passed:
@@ -1188,7 +1294,8 @@ class Runner:
                 failed = gate.failed() or ["review fixes approved by the judge are pending"]
             if rec.repairs >= self.cfg.max_repairs_per_phase:
                 await self._close_session("review repairs exhausted")
-                return PhaseResult(False, failed, report_text)
+                only_pending = G.gate_review(parsed, None).passed and all("fixes pending" in f or "approved by the judge are pending" in f for f in failed)
+                return PhaseResult(False, failed, report_text, gate_passed=only_pending)
             rec.repairs += 1
             fix = jr.reply if (jr.status == "needs_reply" and jr.reply.strip()) else repair_message("review", failed, round_no=rec.repairs, max_rounds=self.cfg.max_repairs_per_phase)
             fix, _ = sanitize_reply(fix, [])
@@ -1202,6 +1309,56 @@ class Runner:
             self._mark_early_done("review")  # a fix was applied: only the after-repairs route remains
             await self._close_session("review fixes applied; re-verify in a fresh session")
             self.save()
+
+    async def _finish_nonblocking_review(self, rec, sess: WorkerSession, parsed: G.ReviewReport, report_text: str, nit_fix: str | None) -> PhaseResult:
+        """The review found no blockers. The judge's approved nit fixes are applied once (when a repair round is left;
+        otherwise they are accepted as they are), then tooling + the DoD check decide, in this same session. A tooling
+        or DoD failure is repaired here too; no fresh review runs, since only blockers justify one."""
+        max_rounds = self.cfg.max_repairs_per_phase
+        if nit_fix is not None:
+            applied = rec.repairs < max_rounds
+            if applied:
+                rec.repairs += 1
+                fix, _ = sanitize_reply(nit_fix, [])
+                self.log.emit("repair", phase="review", round=rec.repairs, failed=["review nit fixes approved by the judge (no blockers)"])
+                sess = await self._review_apply_session(sess, ["review nit fixes approved by the judge"])
+                await self._converse("review:apply", sess, fix)
+                self._mark_early_done("review")
+                self.decisions.add_note("review", f"No blockers; the judge's approved nit fixes were applied once and not re-reviewed (round {rec.repairs}).")
+            else:
+                self.decisions.add_note("review", "No blockers; no repair round was left, so the remaining nits were accepted without the approved fixes.")
+            self.log.emit("review_nonblocking", phase="review", round=rec.repairs, applied=applied, summary="no blockers: nit fixes applied once, no fresh re-review")
+            self.save()
+        while True:
+            tooling = await self._run_tooling()
+            gate = G.gate_review(parsed, tooling)
+            self._add_human_untouched_check(gate)
+            self._log_gate(gate)
+            if gate.passed:
+                v = await self._verify("review", gate, extra=report_text[-20000:])
+                if v is None:
+                    await self._close_session("review verified")
+                    return PhaseResult(True, worker_text=report_text)
+                failed = ["[judge] " + x for x in v]
+            else:
+                failed = gate.failed()
+            if rec.repairs >= max_rounds:
+                await self._close_session("review repairs exhausted")
+                return PhaseResult(False, failed, report_text)
+            rec.repairs += 1
+            self.log.emit("repair", phase="review", round=rec.repairs, failed=failed)
+            sess = await self._review_apply_session(sess, failed)
+            await self._converse("review:apply", sess, repair_message("review", failed, round_no=rec.repairs, max_rounds=max_rounds))
+            self._mark_early_done("review")
+            self.save()
+
+    async def _review_apply_session(self, sess: WorkerSession, failed: list[str]) -> WorkerSession:
+        if self.reset_pending or self.session is not sess:
+            if self.reset_pending:
+                await self._reset(self.reset_pending)
+            sess = await self._fresh_session("review", "apply approved review fixes", failed=failed)
+        self.gate.set_phase("review")
+        return sess
 
     # ---------------------------------------------------------------- ship gate + S5
     async def _ship_gate(self) -> None:
@@ -1581,8 +1738,11 @@ class Runner:
         if action == "forward":
             # a judge can never overrule a failed deterministic gate: re-check it
             regate = await self._regate(phase)
-            self.decisions.add_routing(phase, "forward", None, reason, applied=bool(regate and regate.passed), note="" if regate and regate.passed else "deterministic gate still fails")
-            if regate is not None and regate.passed:
+            # analyze/review cannot be re-gated without a fresh run; their last round's gate stands in when it passed
+            # and only judge-requested (non-blocking) work was left
+            ok = (regate is not None and regate.passed) or (regate is None and res.gate_passed)
+            self.decisions.add_routing(phase, "forward", None, reason, applied=ok, note="" if ok else "deterministic gate still fails")
+            if ok:
                 st.phase(phase).status = "passed"
                 self.log.emit("route", phase=phase, action="forward", reason=reason)
                 return None
@@ -1685,7 +1845,7 @@ class Runner:
             phase=phase,
             cwd=self.repo,
             gate=gate,
-            system_append=WORKER_SYSTEM_APPEND,
+            system_append=WORKER_SYSTEM_APPEND + (DELEGATED_WORKER_APPEND if self.state.flags.get("delegated") else ""),
             budget_usd=budget,
             model=choice.model,
             effort=choice.effort,
@@ -1834,6 +1994,7 @@ class Runner:
     async def _converse(self, phase: str, sess: WorkerSession, first: str, *, facts_fn: Callable[[], dict[str, Any]] | None = None, stop_on_reset: bool = False) -> Conversation:
         msg = first
         turns = 0
+        api_retries = 0
         while True:
             if sess.turns >= self.cfg.max_turns_per_session:
                 self.log.emit("turn_cap", phase=phase, turns=sess.turns)
@@ -1843,6 +2004,22 @@ class Runner:
             if turn.timed_out:
                 await self._close_session("turn timeout")
                 return Conversation("failed", turn.reply_text, reason=f"worker turn exceeded {self.cfg.turn_timeout_min:g} min and was interrupted", turns=turns)
+            if turn.is_error and api_retries < self.cfg.transient_api_retries and is_transient_api_error(turn.final_text, turn.errors):
+                # the API, not the worker: wait and re-send the same message to the same session (no repair round)
+                api_retries += 1
+                delay = min(self.cfg.transient_api_backoff_s * 2 ** (api_retries - 1), TRANSIENT_API_BACKOFF_CAP_S)
+                self.log.emit(
+                    "api_retry",
+                    phase=phase,
+                    session=sess.label,
+                    attempt=api_retries,
+                    of=self.cfg.transient_api_retries,
+                    delay_s=delay,
+                    reason=(turn.final_text or "; ".join(turn.errors))[:200],
+                    summary=f"model API error, retry {api_retries}/{self.cfg.transient_api_retries} in {delay:g}s",
+                )
+                await self._in_thread(self._stoppable_sleep, delay)
+                continue
             if turn.is_error:
                 return Conversation("failed", turn.reply_text, reason=f"worker error: {turn.subtype} {turn.errors[:2]} {turn.final_text[:200]}", turns=turns)
             facts = facts_fn() if facts_fn else {}

@@ -318,6 +318,10 @@ def write_final_report(
     if state.model_switches:
         lines += ["", "## Worker model switches (model_mode = auto)", ""]
         lines += [f"- {m.get('ts', '')} [{m.get('phase')}] {m.get('from') or '(start)'} → {m.get('to')}: {m.get('reason')}" for m in state.model_switches]
+    delegated = state.flags.get("delegated") or {}
+    if delegated:
+        lines += ["", "## Founder decisions taken by the decision agent (founder_decisions = agent)", ""]
+        lines += [f"- {i} {_one_line(d['text'])} → {_one_line(d['chosen'])} ({_one_line(d['rationale'])})" for i, d in delegated.items()]
     if human_open is not None:
         lines += ["", "## Human-only tasks (tasks.md, for a person)", ""]
         lines += [f"- [ ] {t}" for t in human_open] or ["- none open"]

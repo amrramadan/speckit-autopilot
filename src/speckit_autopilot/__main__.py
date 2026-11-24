@@ -35,6 +35,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--until", choices=(*PHASES, "none"), default=None, help="stop BEFORE this phase (e.g. --until ship stops before shipping); --until none clears a stop a run was started with (with --resume: run through ship and the close-out)")
     p.add_argument("--from", dest="from_phase", choices=PHASES, default=None, help="restart at this phase (its preconditions are re-checked)")
     p.add_argument("--allow-escalations", action="store_true", help="let the ship gate open despite judge escalations")
+    p.add_argument("--auto-resume", type=int, default=None, metavar="N", help="resume a halted run by itself up to N times (config: auto_resume)")
     # no USD budget and no wall-clock limit: these old flags still parse, so old command lines keep working, but they
     # are hidden and ignored
     p.add_argument("--budget", type=float, default=None, help=argparse.SUPPRESS)
@@ -119,6 +120,7 @@ def main(argv: list[str] | None = None) -> int:
         "until": args.until,
         "from_phase": args.from_phase,
         "allow_escalations": args.allow_escalations or None,
+        "auto_resume": args.auto_resume,
         "judge_model": args.judge_model,
         "worker_model": args.worker_model,
         "dry_run": args.dry_run,
@@ -165,7 +167,7 @@ def main(argv: list[str] | None = None) -> int:
 
     from .judge import SDKJudge
     from .prompts import JUDGE_SYSTEM_PROMPT
-    from .runner import Runner
+    from .runner import Runner, run_with_auto_resume
 
     if not args.skip_preflight:
         # preflight runs in seconds, before any real spend; a resume skips feature_start's preconditions
@@ -184,9 +186,10 @@ def main(argv: list[str] | None = None) -> int:
     log = EventLog(paths.events, "", echo=lambda m: print(m, flush=True))
     factory = sdk_session_factory(log, paths.transcripts, cli_path=args.cli_path)
     judge = SDKJudge(repo, cfg.judge_model, cfg.judge_call_budget_usd, log, paths.transcripts, JUDGE_SYSTEM_PROMPT, effort=cfg.judge_effort, env=cfg.session_env())
-    runner = Runner(cfg, session_factory=factory, judge=judge, echo=lambda m: print(m, flush=True))
+    def make_runner(c):
+        return Runner(c, session_factory=factory, judge=judge, echo=lambda m: print(m, flush=True))
 
-    outcome = asyncio.run(runner.run())
+    outcome = run_with_auto_resume(cfg, make_runner, echo=lambda m: print(m, flush=True))
     print(f"\nAutopilot finished: {outcome.status} — {outcome.reason}\nReport: {outcome.report}")
     return {"completed": 0, "paused": 0, "halted": 2, "stopped": 3}.get(outcome.status, 1)
 

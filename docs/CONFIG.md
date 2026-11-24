@@ -111,9 +111,13 @@ absent (or `None` internally).
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `max_repairs_per_phase` | int | `2` | Repair rounds per phase entry after a failed gate / Definition-of-Done check (≥ 0). |
+| `transient_api_retries` | int | `5` | Re-sends of a worker turn the model API refused or dropped (403 block page, 429, 5xx, connection errors), without spending a repair round. `0` turns it off. |
+| `transient_api_backoff_s` | float | `60.0` | Wait before the first re-send; doubles each time, at most 15 minutes. |
 | `max_back_edges` | int | `3` | Total times the judge may route back to an earlier phase in one run (≥ 0). |
 | `max_back_per_target` | int | `1` | Times the run may route back to the same phase. |
+| `auto_resume` | int | `0` | Resume a halted run by itself up to this many times (`--auto-resume N`). Each resume re-runs the halted phase with fresh repair rounds; state, decisions and back-edge counts carry over. Halts on a budget, the wall-clock limit or a wrong Linear workspace, and a halt that repeats word for word, still stop. `0` = off. |
 | `analyze_recheck_nonblocking` | bool | `false` | Analyze: when only LOW/MEDIUM findings remain, `false` applies the judge's fixes once and passes; `true` re-runs analyze after them. |
+| `review_recheck_nonblocking` | bool | `false` | Review: when no blockers remain, `false` applies the judge's approved nit fixes once and lets tooling + the DoD check decide in the same session; `true` re-runs a fresh review after them. |
 
 ### Tooling and tests
 
@@ -152,6 +156,7 @@ absent (or `None` internally).
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `human_tasks_block_ship` | bool | `true` | Open human-only tasks in `tasks.md` pause the run before ship. `false`: ship anyway and list them in the report and the Linear comment. |
+| `founder_decisions` | str | `"human"` | `human`: every human-only task waits for a person. `agent`: an open human-only task that is only a decision (`FOUNDER GATE: approve …`, `[H] choose …`) is put to the judge before implement. If it decides, the worker records the decision as the decision agent's and ticks the task. The judge leaves a decision to the person when it needs another party, outside facts, money, credentials, production access or a constitution amendment. Operator steps, `[RUN]` / `[MANUAL]` tasks and "not for agents" tasks are never offered. A high-impact decision can still escalate and hold the ship. |
 | `checklists_gate` | str | `"judge"` | `judge`: the judge answers speckit-implement's unchecked-checklist question. `halt`: unchecked items in `<feature dir>/checklists/*.md` pause the run before implement. |
 
 ### Linear keys

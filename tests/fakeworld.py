@@ -244,6 +244,7 @@ class World:
         self.implement_ctx_high_after: int | None = None  # context pct >= 90 after this many implement turns
         self.implement_turns = 0
         self.review_blockers_rounds: list[int] = [0]
+        self.review_nits_rounds: list[int] = [0]  # nits per fresh review (last value repeats)
         self.review_calls = 0
         self.ship_crash_after_push = False
         self.ship_crash_before_push = False  # cc-ship crashes before committing/pushing anything
@@ -256,6 +257,9 @@ class World:
         self.feature_start_hands_back = True
         self.analyze_trailers: list[str | None] = []  # per analyze run: the ANALYZE_SUMMARY reply (None: counts of the table)
         self.tasks_md = TASKS_MD  # what /speckit-tasks writes
+        self.api_error_in: dict[str, int] = {}  # phase -> number of worker turns that fail with a transient API error
+        self.delegated_seen: set[str] = set()  # ids the implement messages listed as delegated decisions
+        self.follow_delegated = True  # the implementer ticks the tasks listed under DELEGATED DECISIONS
         self.tick_human = False  # a misbehaving implementer that also ticks human-only tasks
         self.checklists: dict[str, str] = {}  # checklists/<name> -> content, written with the plan
         self.spec_front_matter = ""  # e.g. Bravo's "---\nlinear:\n  issueId: ENG-142\n  shared: true\n---\n"
@@ -303,6 +307,10 @@ class World:
         if pipeline_turn and self.hang_in.get(phase, 0) > 0:
             self.hang_in[phase] -= 1
             return FakeTurn("", hang=True)  # does nothing; FakeSession times out and interrupts it
+        if pipeline_turn and self.api_error_in.get(phase, 0) > 0:
+            self.api_error_in[phase] -= 1
+            # the shape a real blocked API call has: subtype success, is_error, this text
+            return FakeTurn("Failed to authenticate. API Error: 403 Attention Required! | Cloudflare", is_error=True)
         push = pipeline_turn and self.ship_attempt_push_in == phase and not self.push_attempted
         if push and phase == "implement":
             # a denied tool call blocks the whole turn's action in FakeSession, so the push attempt is a turn of its own
@@ -369,6 +377,7 @@ class World:
             return FakeTurn("Applied the approved edits.", action=lambda _s: self._apply_edit(s), tool_calls=[("Edit", {"file_path": str(self.feature_dir(s) / "tasks.md")})])
         if msg.startswith("/speckit-implement") or (phase == "implement" and msg.strip().lower() == "continue"):
             self.implement_turns += 1
+            self._note_delegated(msg)
             pct = 95 if (self.implement_ctx_high_after and self.implement_turns >= self.implement_ctx_high_after) else 20
             return FakeTurn("", context_pct=pct, action=lambda _s: self._implement_one_phase(s), tool_calls=[("Edit", {"file_path": str(self.repo / "src" / "filters.py")})])
         if msg.startswith("AUTOPILOT REPAIR"):
@@ -377,11 +386,13 @@ class World:
             i = min(self.review_calls, len(self.review_blockers_rounds) - 1)
             self.review_calls += 1
             self._last_review_blockers = self.review_blockers_rounds[i]
+            self._last_review_nits = self.review_nits_rounds[min(i, len(self.review_nits_rounds) - 1)]
+            nits = "\n".join(f"- N{self.review_calls}.{k}: tidy src/filters.py:1" for k in range(1, self._last_review_nits + 1)) or "None."
             if self._last_review_blockers:
-                return FakeTurn("## Blockers\n- **Severity**: blocker\n- **Anchor**: src/filters.py:1\n- **Finding**: missing guard\n\n## Nits\nNone.\n\n## Questions\nNone.")
-            return FakeTurn("## Blockers\nNone.\n\n## Nits\nNone.\n\n## Questions\nNone.")
+                return FakeTurn(f"## Blockers\n- **Severity**: blocker\n- **Anchor**: src/filters.py:1\n- **Finding**: missing guard\n\n## Nits\n{nits}\n\n## Questions\nNone.")
+            return FakeTurn(f"## Blockers\nNone.\n\n## Nits\n{nits}\n\n## Questions\nNone.")
         if msg.startswith("Now append a machine-readable summary"):
-            return FakeTurn(f"REVIEW_SUMMARY blockers={self._last_review_blockers} nits=0 questions=0")
+            return FakeTurn(f"REVIEW_SUMMARY blockers={self._last_review_blockers} nits={getattr(self, '_last_review_nits', 0)} questions=0")
         if msg.startswith("/cc-ship") or msg.startswith("AUTOPILOT SHIP RESUME"):
             return self._ship(s, msg)
         if msg.startswith("AUTOPILOT LINEAR CLOSE-OUT"):
@@ -430,7 +441,11 @@ class World:
         if not line.startswith("- [ ]"):
             return False
         tasks = parse_tasks(line)
-        return self.tick_human or not (tasks and tasks[0].human)
+        return self.tick_human or not (tasks and tasks[0].human) or tasks[0].id in self.delegated_seen
+
+    def _note_delegated(self, msg: str) -> None:
+        if self.follow_delegated and "DELEGATED DECISIONS" in msg:
+            self.delegated_seen |= set(re.findall(r"^- (T\d+): ", msg, re.M))
 
     def _implement_one_phase(self, s: FakeSession) -> None:
         p = self.feature_dir(s) / "tasks.md"
@@ -461,6 +476,7 @@ class World:
 
     def _repair(self, s: FakeSession, msg: str, phase: str) -> None:
         self.repairs_seen.append((phase, msg))
+        self._note_delegated(msg)
         if "all-tasks-checked" in msg:
             self._implement_one_phase(s)
         if "human-tasks-untouched" in msg:
@@ -546,6 +562,8 @@ class JudgeScript:
         self.escalate_in: str | None = None
         self.analyze_accept_all = False
         self.analyze_fix_nonblocking = False  # like the real judge: also ask to fix the MEDIUM/LOW rows
+        self.gates: dict[str, Any] = {}  # founder_decisions=agent: task id -> "decide" | "leave_to_person" | a raw dict | None
+        self.review_fix_nits = False  # like the real judge: approve fixes for a blocker-free review's nits
 
     def __call__(self, req: JudgeRequest) -> dict[str, Any] | None:
         m, ph = req.mode, req.phase.split(":")[0]
@@ -566,6 +584,11 @@ class JudgeScript:
         if m == "route":
             r = self.route_action.get(ph, {"action": "halt", "reason": "cannot fix"})
             return {"action": r["action"], "target_phase": r.get("target"), "reason": r.get("reason", "scripted")}
+        if m == "gate":
+            out = self.gates.get(req.payload["task_id"], "decide")
+            if not isinstance(out, str):
+                return out
+            return {"outcome": out, "decision": decision("gate", "approve the Organic copy as written", impact="medium", rationale="matches spec FR-001"), "escalate": False, "escalate_reason": ""}
         if m == "answer":
             qs = req.payload.get("questions", [])
             return {"answers": [{"question": q["question"], "labels": [q["options"][1]["label"]]} for q in qs], "decisions": [decision(q["question"], q["options"][1]["label"], recommended=q["options"][0]["label"], followed=False, rationale="local storage fits the evidence")], "escalate": False, "escalate_reason": ""}
@@ -597,6 +620,9 @@ class JudgeScript:
         if ph == "review":
             if "**Severity**: blocker" in text:
                 return respond("needs_reply", "Approved, apply these fixes now:\n1. add a None guard in src/filters.py:1", [decision("blocker: missing guard", "fix", impact="medium")], blocking=0)
+            nits = re.findall(r"^- (N[0-9.]+):", text, re.M)
+            if nits and self.review_fix_nits:
+                return respond("needs_reply", "Approved, apply these fixes now:\n" + "\n".join(f"{i}. fix {n}" for i, n in enumerate(nits, 1)), [decision(f"nit {n}", "fix", impact="low") for n in nits], blocking=0)
             return respond("done")
         return respond("done", escalate=esc, reason="legal" if esc else "")
 

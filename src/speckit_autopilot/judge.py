@@ -113,7 +113,20 @@ ROUTE_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
 }
 
-SCHEMAS = {"respond": RESPOND_SCHEMA, "answer": ANSWER_SCHEMA, "verify": VERIFY_SCHEMA, "route": ROUTE_SCHEMA}
+# founder_decisions = "agent": one human-only decision task of tasks.md
+GATE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "outcome": {"type": "string", "enum": ["decide", "leave_to_person"]},
+        "decision": DECISION_SCHEMA,
+        "escalate": {"type": "boolean"},
+        "escalate_reason": {"type": "string"},
+    },
+    "required": ["outcome", "decision", "escalate", "escalate_reason"],
+    "additionalProperties": False,
+}
+
+SCHEMAS = {"gate": GATE_SCHEMA, "respond": RESPOND_SCHEMA, "answer": ANSWER_SCHEMA, "verify": VERIFY_SCHEMA, "route": ROUTE_SCHEMA}
 
 
 class JudgeOutputError(ValueError):
@@ -202,7 +215,7 @@ class JudgeResult:
 
 @dataclass
 class JudgeRequest:
-    mode: str  # respond | answer | verify | route (payload["early"]: the round-1 root-cause check)
+    mode: str  # respond | answer | verify | gate | route (payload["early"]: the round-1 root-cause check)
     phase: str
     context: dict[str, Any]  # issue, description, feature_dir, artifacts, ...
     payload: dict[str, Any]  # mode specific
@@ -223,6 +236,10 @@ class Judge(abc.ABC):
 
     async def verify(self, req: JudgeRequest) -> JudgeResult:
         req.mode = "verify"
+        return await self.call(req)
+
+    async def gate(self, req: JudgeRequest) -> JudgeResult:
+        req.mode = "gate"
         return await self.call(req)
 
     async def route(self, req: JudgeRequest) -> JudgeResult:

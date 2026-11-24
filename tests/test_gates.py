@@ -1058,6 +1058,31 @@ def test_ship_facts_squash_merge_needs_the_gh_pr_state(repo):
     assert G.gate_ship(f, "main", ci=("success", "1 run(s) green"), ci_required=True).passed
 
 
+def test_ship_facts_ignores_a_pr_merged_before_this_run(repo):
+    """A reused branch name lists an earlier run's merged PR; it must not count as this run's merge."""
+    _push_feature(repo)
+    git(repo, "checkout", "-q", "main")
+    git(repo, "merge", "-q", "--no-ff", "-m", "Merge pull request #10", "feature/115-x")
+    old_merge = git(repo, "rev-parse", "HEAD")
+    git(repo, "push", "-q", "origin", "main")
+    start = old_merge  # the new run forks from main after the old merge
+    git(repo, "checkout", "-q", "feature/115-x")
+    git(repo, "merge", "-q", "main")
+    (repo / "src" / "again.py").write_text("y = 2\n")
+    commit_all(repo, "feat: second run")
+    git(repo, "push", "-q", "origin", "feature/115-x")
+    git(repo, "checkout", "-q", "main")
+    prs = [
+        {"number": 107, "state": "OPEN", "url": "u107", "mergeCommit": None, "baseRefName": "main"},
+        {"number": 10, "state": "MERGED", "url": "u10", "mergeCommit": {"oid": old_merge}, "baseRefName": "main"},
+    ]
+    f = G.ship_facts(repo, "main", "feature/115-x", gh_runner=FakeGh(prs=prs), start_sha=start)
+    assert not f.merged and (f.pr_number, f.pr_state) == (107, "OPEN")
+    assert any("#10" in d for d in f.detail)
+    # without a fork point the old behaviour stays (nothing to compare against)
+    assert G.ship_facts(repo, "main", "feature/115-x", gh_runner=FakeGh(prs=prs)).pr_number == 10
+
+
 def test_ship_facts_local_branch_only_and_gh_errors(repo):
     git(repo, "checkout", "-q", "-b", "feature/115-x")
     (repo / "src" / "x.py").write_text("x = 1\n")
