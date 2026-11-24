@@ -203,7 +203,14 @@ Entries of the `*_phases` lists must be phase names (or `halt_notice`).
 | `max_wallclock_h` | float | unset | Halt after this many hours of accumulated run time. |
 | `ship_min_remaining_usd` | float | `3.0` | Only with `total_budget_usd`: the ship gate keeps this much in reserve. |
 | `judge_timeout_min` | float | `10.0` | End a hung judge call. |
-| `notify_command` | str | unset | Shell command run on completion, pause and halt. `{message}` is replaced by the shell-quoted message, which is also in `$AUTOPILOT_MESSAGE`. Example: `'osascript -e "display notification \"$AUTOPILOT_MESSAGE\""'`. |
+| `notify_command` | str | unset | Shell command run on completion, pause and halt. `{message}` is replaced by the shell-quoted message, which is also in `$AUTOPILOT_MESSAGE`. Pass the message as an argument, never inside script source (see the macOS example below). |
+
+macOS notification for `notify_command`. The message is an argument here: pasted into the AppleScript text, a quote in a
+halt reason would break the script or run as code.
+
+```toml
+notify_command = """osascript -e 'on run argv' -e 'display notification (item 1 of argv) with title "Autopilot"' -e 'end run' -- "$AUTOPILOT_MESSAGE\""""
+```
 
 ### Run flags (CLI)
 

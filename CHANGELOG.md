@@ -28,6 +28,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- The `notify_command` example in the docs pasted the message into AppleScript source, so a quote in a halt reason could
+  run as code. It now passes the message as an argument; change it if you copied the old one.
 - A worker turn that fails because the model API refused or dropped the call (403 block page, 429, 5xx, connection
   errors) waits and is re-sent to the same session instead of spending a repair round (`transient_api_retries = 5`,
   `transient_api_backoff_s = 60`, doubling up to 15 minutes).
