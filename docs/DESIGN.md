@@ -382,6 +382,17 @@ Seatbelt refuses to exec setuid programs (EPERM even under `(allow default)`), w
 
 ---
 
+### 4.7 The queue (`specqueue.py`)
+
+`queue start` is a small process around ordinary runs: it picks an item, launches `speckit_autopilot --issue …` as a
+child in its own session, waits, and reads the run's state. `queue.json` (written under an advisory lock, because the
+CLI edits it while the queue runs) ties each item to a run id. A run is recognised as the item's by that id or, before it
+is known, by the issue key plus a run id that differs from the one in `state.json` at launch, so an older run of the same
+issue is never taken for this one. The child's pid is stored as well: a run in preflight holds no run lock yet, and a
+restarted queue must follow it instead of launching the spec again. A child that creates no run leaves the item queued
+and blocks the queue. Only `completed` advances it; `halted` advances it only with `on_halt = skip`, a clean checkout and
+a ship phase that had not started.
+
 ## 5. Spec Kit dialects (markers the gates rely on)
 
 The gates were built against real repos on two Spec Kit generations. Repos differ mainly in how commands are named and

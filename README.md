@@ -124,6 +124,7 @@ transitions. It never runs pipeline steps itself; close the session and the run 
 | `/autopilot dry-run ENG-142 ["description"]` | Preflight only |
 | `/autopilot status` · `watch` · `report` · `stop` | Inspect or stop the run |
 | `/autopilot abandon` | Archive a halted/stopped/paused run (asks first) |
+| `/autopilot queue add\|start\|status\|pause\|remove\|retry\|clear` | Several specs, one after another |
 | `/autopilot init [--statusline]` | Same as `speckit-autopilot init` |
 | `/autopilot model [worker\|judge\|reader\|all] [ID]` · `model auto\|fixed` | Show / set models |
 | `/autopilot effort [worker\|judge\|all] [LEVEL]` | Show / set reasoning effort |
@@ -139,7 +140,7 @@ current setting and ask you to pick one. Settings apply to the next run or `--re
 
 | Flag | Meaning |
 |---|---|
-| `description` (positional) | Feature description. Required for a new run; taken from the saved state with `--resume` / `--from`. |
+| `description` (positional) | Feature description. Required for a new run without Linear (with Linear the default is the issue title); taken from the saved state with `--resume` / `--from`. |
 | `--repo PATH` | Target repository. Default: the current directory if it is a git repo. |
 | `--issue KEY` | Tracker issue key, e.g. `ENG-142`. Required when Linear is on. |
 | `--linear` / `--no-linear` | Force Linear on / off for this run (overrides `linear` in config). |
@@ -239,6 +240,30 @@ speckit-autopilot --resume --until ship --detach
 # review the branch and REPORT.md, then ship and close out:
 speckit-autopilot --resume --detach
 ```
+
+## Several specs in a row
+
+```bash
+speckit-autopilot queue add ENG-142 ENG-143=031 ENG-150     # KEY or KEY=SPEC; with Linear the issue title is the description
+speckit-autopilot queue add ENG-151 --after ENG-143         # start only once ENG-143 is done
+speckit-autopilot queue add --description "Add product filters"   # without Linear
+speckit-autopilot queue start                               # in the background
+speckit-autopilot queue status
+```
+
+Every spec is an ordinary run with its own gates; the next one starts only after the previous one merged and closed,
+from a clean checkout on an up-to-date base branch. Progress is saved in `.autopilot/queue.json`: a finished spec is
+never launched again, specs can be added while the queue runs, and a restarted queue re-attaches to the run in progress.
+
+- **A halt stops the queue** and calls `notify_command`. The queue never resumes a run by itself: set `auto_resume` for
+  that (it gives up on a halt that repeats word for word). Fix the cause, then `queue start` resumes that spec once.
+- `queue start --on-halt skip` archives the halted run and goes on with specs that do not depend on it. It skips only
+  when the halted spec's work is committed on its branch and it had not started shipping; the queue never stashes,
+  commits or resets anything. A paused or stopped run always ends the queue.
+- `queue pause` stops after the current spec; `--stop` stops the current run (and with it the queue). `queue retry KEY`
+  starts a halted or skipped spec from the beginning (archive a run that is still there with `--abandon` first);
+  `queue remove KEY` drops one; `queue clear` drops everything not running or halted.
+- One queue and one run per checkout. Use a separate clone per repo or stream to run in parallel.
 
 ## Safety
 

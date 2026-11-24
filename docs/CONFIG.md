@@ -68,6 +68,7 @@ All write `<repo>/.autopilot.toml` by default, or the user config with `--global
 | `sandbox [auto\|on\|off]` | Show / set `sandbox`. |
 | `linear [auto\|on\|off]` | Show / set `linear`; the show form also says what `auto` would resolve to for an issue key. |
 | `statusline install\|uninstall\|status [--scope local\|project\|user] [--interval N]` | Manage the Claude Code status line (see below). |
+| `queue add\|start\|status\|pause\|remove\|retry\|clear` | Several specs, one after another ([README](../README.md#several-specs-in-a-row)). Takes no `--global`. |
 | `version` | Print the installed version. |
 
 **Status line.** `install` sets `statusLine` in `.claude/settings.local.json` (`--scope local`, default),

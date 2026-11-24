@@ -617,6 +617,8 @@ class Runner:
                     workspace=snap.workspace_url,
                     initial_status=snap.issue.get("status"),
                 )
+                if not st.description and st.linear["title"]:  # launched with the key alone
+                    st.description = cfg.description = str(st.linear["title"])
             else:
                 st.linear["read_error"] = "; ".join(snap.errors) or "issue not found"
             if not snap.issue:
