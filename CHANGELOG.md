@@ -7,6 +7,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `queue`: several specs in one repo, one after another (`queue add KEY[=SPEC] …`, `start`, `status`, `pause`, `remove`,
+  `retry`, `clear`), with saved progress, `--after` dependencies and `--on-halt stop|skip`.
+- With Linear on, a run can be launched with the issue key alone: the issue title becomes the description.
 - `founder_decisions` (config, default `"human"`): with `"agent"` the judge takes the human-only tasks that are only a
   decision (`FOUNDER GATE: approve …`) before implement. The decision is recorded as the decision agent's and listed
   in the report; work a person performs is never delegated, and the judge may leave a decision to the person.

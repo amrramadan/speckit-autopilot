@@ -1,7 +1,7 @@
 ---
 name: autopilot
 description: "Launch, watch, stop or report on a Spec Kit Autopilot run (one issue -> spec -> plan -> tasks -> analyze -> implement -> review -> merged PR -> issue close-out) as a detached background process, and configure it: models, effort, context reset, sandbox, Linear on/off, status line. This session only launches, watches and configures; it never performs pipeline steps itself."
-argument-hint: "[KEY] \"description\" [flags] | resume | status | watch | stop | report | dry-run KEY | abandon | init | model [role] [id] | model auto|fixed | effort [role] [level] | context-reset [pct] | sandbox [mode] | linear [auto|on|off] | statusline [install|uninstall|status] | config [show|get|set|unset|path] | help"
+argument-hint: "[KEY] \"description\" [flags] | resume | status | watch | stop | report | dry-run KEY | abandon | queue [add|start|status|pause|remove|retry|clear] | init | model [role] [id] | model auto|fixed | effort [role] [level] | context-reset [pct] | sandbox [mode] | linear [auto|on|off] | statusline [install|uninstall|status] | config [show|get|set|unset|path] | help"
 disable-model-invocation: true
 ---
 
@@ -55,12 +55,26 @@ a separate clone or worktree is safer (preflight refuses a dirty tree anyway).
 | `/autopilot abandon` | confirm with the user first, then `SA --repo REPO --abandon` (archives run state; never touches git or the tracker) |
 
 Pass through unchanged: `--linear`, `--no-linear`, `--spec ID`, `--until PHASE`, `--allow-escalations`, `--auto-resume N`, `--judge-model M`, `--worker-model M`,
-`--cli-path PATH`. Phases: `feature_start clarify plan tasks analyze implement review ship linear`; `--until P` stops
+`--cli-path PATH`. With Linear on the description may be left out (the issue title is used). Phases: `feature_start clarify plan tasks analyze implement review ship linear`; `--until P` stops
 **before** P. Quote the description as one shell argument. When the repo's config has `spec_id_style = "key"` and the
 user gave no `--spec`, ask for it before launching.
 
 After a detached launch, follow `references/watching.md` (show pid + paths, check the console after ~10 s, watch,
 summarise the outcome).
+
+### Queue (several specs, one after another)
+
+| User types | Run |
+|---|---|
+| `/autopilot queue add KEY[=SPEC] … [--after KEY] [--first] [--again]` | `SA queue add KEY … --repo REPO` (one spec may also take `--description "…"` / `--spec ID`; without Linear a description is required) |
+| `/autopilot queue start [--on-halt stop\|skip]` | `SA queue start --repo REPO [--on-halt …]` — already runs in the background; never add `--detach` or `--foreground` |
+| `/autopilot queue` / `queue status` | `SA queue status --repo REPO` |
+| `/autopilot queue pause` | `SA queue pause --repo REPO` (after the current spec; to stop that run too use `/autopilot stop`) |
+| `/autopilot queue remove KEY` / `retry KEY` / `clear` | `SA queue … --repo REPO` (confirm `clear` first) |
+
+After `queue start`, watch `.autopilot/queue.log` (one line per change) and `run.jsonl` as for a single run. When the queue
+stops on a halt, show its reason and the run's report; never start it again on your own, ask the user. Do not pick or
+reorder specs the user did not name.
 
 ### Setup and settings
 

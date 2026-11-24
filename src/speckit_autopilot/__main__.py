@@ -23,8 +23,8 @@ from .state import RunLock, RunPaths, StateStore, pid_alive
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="speckit-autopilot", description="Spec Kit Autopilot: one Linear issue from start to merged + closed, unattended.",
-        epilog="settings: speckit-autopilot {init,config,model,effort,linear,context-reset,sandbox,statusline,version} --help")
-    p.add_argument("description", nargs="?", default=None, help="feature description (required for a new run)")
+        epilog="several specs: speckit-autopilot queue --help · settings: speckit-autopilot {init,config,model,effort,linear,context-reset,sandbox,statusline,version} --help")
+    p.add_argument("description", nargs="?", default=None, help="feature description (default with Linear: the issue title)")
     p.add_argument("--repo", default=None, help="target repository path. Default: the current directory if it is a git repo")
     p.add_argument("--issue", default=None, help="issue key, e.g. ENG-142 (required with Linear on; optional with --no-linear)")
     lin = p.add_mutually_exclusive_group()
@@ -76,6 +76,10 @@ def main(argv: list[str] | None = None) -> int:
         from . import admin
 
         return admin.main(raw)
+    if raw and raw[0] == "queue":
+        from . import specqueue
+
+        return specqueue.main(raw[1:])
     args = build_parser().parse_args(argv)
     if args.watch:  # works outside a repo too (the workspace root): then it shows every active run
         from . import live
@@ -108,8 +112,6 @@ def main(argv: list[str] | None = None) -> int:
         st = StateStore(paths.state).load()
         issue = issue or st.issue
         description = description or st.description
-    if not description and not args.dry_run:
-        raise SystemExit("a feature description is required for a new run")
 
     overrides = {
         "linear": args.linear,
@@ -136,6 +138,8 @@ def main(argv: list[str] | None = None) -> int:
     linear_on, linear_why = resolve_linear(cfg)
     if linear_on and not looks_like_issue_key(cfg.issue):
         raise SystemExit(f"Linear is on ({linear_why}): pass --issue <KEY> (e.g. ENG-142), or --no-linear to run without Linear")
+    if not cfg.description and not args.dry_run and not linear_on:  # with Linear the issue title is the description
+        raise SystemExit("a feature description is required for a new run without Linear")
     if not cfg.issue:
         # no tracker: the run is labelled by its description (state, report, lock), e.g. "product-filters"
         if not cfg.description:
